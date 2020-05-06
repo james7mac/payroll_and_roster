@@ -22,7 +22,7 @@ class payslip:
         self.pdf_path = path
         self.scan_pdf()
         self.advice_table = self.get_advice_table()
-        self.standard_table = self.get_advice_table()
+        self.standard_table = self.get_standard_table()
 
     def scan_pdf(self):
         csv_filename = os.path.dirname(self.pdf_path) + '\\' + 'tempfile.csv'
@@ -74,7 +74,30 @@ class payslip:
     def compile_decuctions(self):
         deductions = []
         for deduction in self.advice_table[:2]:
-            pass
+            duction = deduction[3].split()[1:]
+            deductions.append((' '.join(duction),float(deduction[-1])))
+        return deductions
+
+    def compile_leave(self):
+        target_rows = ('LSL Full', 'PH Credits', 'EDO', 'Sick Full')
+        leave = dict()
+        for line in self.standard_table:
+            for type in target_rows:
+                if type in line:
+                    for cell in line:
+                        pass
+
+
+    def get_hours_worked(self):
+        pass
+
+    def get_hours_earned
+        pass
+
+
+
+
+
 
 
 class payslips:
@@ -115,6 +138,6 @@ class payslips:
 #password = input('input passy')
 p = payslip(r'C:\Users\james\PycharmProjects\payroll_and_roster\Q001830A.2020429.95147.0001453249.pdf')
 #p.extract_dates()
-[print(x) for x in p.raw_table]
+[print(x) for x in p.standard_table]
 print('#####################')
-[print(x) for x in p.compile_advice()]
+[print(x) for x in p.compile_decuctions()]

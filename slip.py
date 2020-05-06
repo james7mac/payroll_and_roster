@@ -1,17 +1,18 @@
 #! python3
 # slip.py - retrieves pdf from adp and then scrapes data from that pdf
 
-import time, pyautogui, os, tabula, csv
+import time, pyautogui, os, tabula, csv, openpyxl, glob, pickle
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
 
 
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
-    download_folder =   r'C:\Users\james\Downloads'
+    working_dir =   r'C:\Users\james\Downloads'
     slip_folder =       r'C:\Users\james\PycharmProjects\payroll_and_roster'
 
 elif os.environ['COMPUTERNAME'] == 'JAMESPC':
+    working_dir = r'A:\Python\payroll_and_roster'
     download_folder = ''
 else:
     Exception()
@@ -19,7 +20,7 @@ else:
 
 class payslip:
     def __init__(self, path):
-        self.pdf_path = path
+        self.pdf_path = path = "\\" + 'payslips'
         self.scan_pdf()
         self.advice_table = self.get_advice_table()
         self.standard_table = self.get_standard_table()
@@ -49,6 +50,7 @@ class payslip:
             if "SUMMARY OF EARNINGS" in line:
                 advice_ends = index
                 break
+
         return advice_begins, advice_ends
 
 
@@ -91,16 +93,49 @@ class payslip:
     def get_hours_worked(self):
         pass
 
-    def get_hours_earned
+    def get_hours_earned(self):
         pass
 
 
 
+class Roster:
+    def __init__(self, roster_location):
+        self.roster_location = roster_location
+        if not hasattr(self, 'compiled_roster'):
+            self.compiled_roster = self.roster_build()
+
+    def roster_build(self):
+        if not hasattr(self, 'raw_roster'):
+            pickle_location = self.roster_location + '\\' + 'XL.pickle'
+            if os.path.exists(pickle_location):
+                with open(pickle_location, 'rb') as file:
+                    self.raw_roster = pickle.load(file)
+            else:
+                most_recent = most_recent_file(self.roster_location, 'xlsx')
+                self.raw_roster = openpyxl.load_workbook(most_recent)
+                with open(pickle_location, 'wb') as file:
+                    pickle.dump(self.raw_roster, file)
+
+        print(self.raw_roster)
+        for day in range(14):
+            pass
+            #fortnight.append(self.build_day(roster.get))
+        #return fortnight
+
+    def load_XL_book(self):
+        most_recent = most_recent_file(self.roster_location, 'xlsx')
+        roster = openpyxl.load_workbook(most_recent)
+        return roster
 
 
 
 
-class payslips:
+
+
+
+
+
+class Payslips:
     def __init__(self, password):
         self.url = r'https://secure.adppayroll.com.au/'
         self.work_ID = 'PR00002'
@@ -134,10 +169,44 @@ class payslips:
         browser.close()
 
 
+def most_recent_file(location, extention):
+    #returns the most recent file with extention
+    path = location + '/' + extention
+    list_of_files = glob.glob(path)  # * means all if need specific format then *.csv
+    latest_file = max(list_of_files, key=os.path.getctime)
+    return latest_file
+
 
 #password = input('input passy')
+r'''
 p = payslip(r'C:\Users\james\PycharmProjects\payroll_and_roster\Q001830A.2020429.95147.0001453249.pdf')
 #p.extract_dates()
 [print(x) for x in p.standard_table]
 print('#####################')
 [print(x) for x in p.compile_decuctions()]
+
+
+def load():
+    if 'notable_helper.pickle' in os.listdir():
+        with open('notable_helper.pickle', 'rb') as file:
+            manager = pickle.load(file)
+
+    else:
+        manager = System(original_folder, modified_folder)
+
+
+def save():
+    with open('notable_helper.pickle', 'wb') as file:
+        pickle.dump(manager, file)
+
+'''
+
+def most_recent_file(location, extention):
+    #returns the most recent file with extention
+    path = location + '\\*.' + extention
+    print(path)
+    list_of_files = glob.glob(path)  # * means all if need specific format then *.csv
+    latest_file = max(list_of_files, key=os.path.getctime)
+    return latest_file
+
+roster = Roster(working_dir)

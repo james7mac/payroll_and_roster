@@ -106,21 +106,21 @@ class Roster:
 
     def roster_build(self):
         if not hasattr(self, 'raw_roster'):
-            pickle_location = self.roster_location + '\\' + 'XL.pickle'
-            if os.path.exists(pickle_location):
-                with open(pickle_location, 'rb') as file:
-                    self.raw_roster = pickle.load(file)
-            else:
-                most_recent = most_recent_file(self.roster_location, 'xlsx')
-                self.raw_roster = openpyxl.load_workbook(most_recent)
-                with open(pickle_location, 'wb') as file:
-                    pickle.dump(self.raw_roster, file)
+            self.raw_roster = self.get_raw_workbook()
 
-        print(self.raw_roster)
-        for day in range(14):
-            pass
-            #fortnight.append(self.build_day(roster.get))
-        #return fortnight
+    def get_raw_workbook(self):
+        pickle_location = self.roster_location + '\\' + 'XL.pickle'
+        if os.path.exists(pickle_location):
+            with open(pickle_location, 'rb') as file:
+                return pickle.load(file)
+        else:
+            most_recent = most_recent_file(self.roster_location, 'xlsx')
+            raw_roster = openpyxl.load_workbook(most_recent)
+            with open(pickle_location, 'wb') as file:
+                pickle.dump(raw_roster, file)
+            return raw_roster
+
+
 
     def load_XL_book(self):
         most_recent = most_recent_file(self.roster_location, 'xlsx')

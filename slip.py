@@ -1,10 +1,14 @@
 #! python3
 # slip.py - retrieves pdf from adp and then scrapes data from that pdf
 
-import time, pyautogui, os, tabula, csv, openpyxl, glob, pickle
+import time, pyautogui, os, tabula, csv, openpyxl, glob, pickle, logging
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
+from datetime import timedelta
+
+logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
+logging.debug('Start of program')
 
 
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
@@ -105,14 +109,22 @@ class Roster:
             self.compiled_roster = self.roster_build()
 
     def roster_build(self):
+        comiled_roster = []
         if not hasattr(self, 'raw_roster'):
             self.raw_roster = self.get_raw_workbook()
+        for day in range(14):
+            x = RosterDay(self.raw_roster, day)
+            x.extract_shifts()
+            comiled_roster.append(x)
+
 
     def get_raw_workbook(self):
         pickle_location = self.roster_location + '\\' + 'XL.pickle'
         if os.path.exists(pickle_location):
             with open(pickle_location, 'rb') as file:
-                return pickle.load(file)
+                unpickled =  pickle.load(file)
+                #TODO: add check to ensure the pickled object matches the newest XL spreadhseet
+                return unpickled
         else:
             most_recent = most_recent_file(self.roster_location, 'xlsx')
             raw_roster = openpyxl.load_workbook(most_recent)
@@ -120,12 +132,33 @@ class Roster:
                 pickle.dump(raw_roster, file)
             return raw_roster
 
+class RosterDay:
+    def __init__(self, roster, day):
+        self.raw_roster = roster
+        self.day_sheet = roster.worksheets[day]
+        #all dates must be calculated relative to the dat on sheet 0:
+        self.date = self.raw_roster.worksheets[0]['F1'].value + timedelta(days=day)
+        self.shifts = {}
+
+    def extract_shifts(self):
+        #find the last shift on the normal roster
+        for i in range(5,self.day_sheet.max_row,4):
+            cell = self.day_sheet['A' + str(i)]
+            try:
+                int(cell.value)
+                last_cell = cell
+            except:
+                pass
+        last_cell = last_cell.row
+        logging.debug('last cell is' + str(last_cell))
 
 
-    def load_XL_book(self):
-        most_recent = most_recent_file(self.roster_location, 'xlsx')
-        roster = openpyxl.load_workbook(most_recent)
-        return roster
+        for i in range(5,last_cell,4):
+            pass
+
+
+
+
 
 
 

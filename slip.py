@@ -108,6 +108,7 @@ class Roster:
         if not hasattr(self, 'compiled_roster'):
             self.compiled_roster = self.roster_build()
 
+
     def roster_build(self):
         comiled_roster = []
         if not hasattr(self, 'raw_roster'):
@@ -116,6 +117,7 @@ class Roster:
             x = RosterDay(self.raw_roster, day)
             x.extract_shifts()
             comiled_roster.append(x)
+        return comiled_roster
 
 
     def get_raw_workbook(self):
@@ -127,10 +129,14 @@ class Roster:
                 return unpickled
         else:
             most_recent = most_recent_file(self.roster_location, 'xlsx')
-            raw_roster = openpyxl.load_workbook(most_recent)
+            raw_roster = openpyxl.load_workbook(most_recent, data_only=True)
             with open(pickle_location, 'wb') as file:
                 pickle.dump(raw_roster, file)
             return raw_roster
+
+
+
+
 
 class RosterDay:
     def __init__(self, roster, day):
@@ -138,7 +144,7 @@ class RosterDay:
         self.day_sheet = roster.worksheets[day]
         #all dates must be calculated relative to the dat on sheet 0:
         self.date = self.raw_roster.worksheets[0]['F1'].value + timedelta(days=day)
-        self.shifts = {}
+        self.shifts = []
 
     def extract_shifts(self):
         #find the last shift on the normal roster
@@ -149,23 +155,58 @@ class RosterDay:
                 last_cell = cell
             except:
                 pass
-        last_cell = last_cell.row
+        last_cell = self.get_last_cell()
         logging.debug('last cell is' + str(last_cell))
 
 
+
+        jobs = []
+        #cell is B5, then each new job is 4 row down
+        #so we skip 4 rows each iteration
         for i in range(5,last_cell,4):
-            pass
+            job = {}
+            job['id'] = self.get_cell_data(self.day_sheet, i, 'B') if self.get_cell_data(self.day_sheet, i, 'B') else None
+            job['down'] = self.get_cell_data(self.day_sheet, i, 'C') if self.get_cell_data(self.day_sheet, i, 'C')  else None
+            job['up'] = self.get_cell_data(self.day_sheet, i, 'E') if self.get_cell_data(self.day_sheet, i, 'E') else None
+            job['dest'] = self.get_cell_data(self.day_sheet, i, 'D') if self.get_cell_data(self.day_sheet, i, 'D') else None
+            job['start'] = int(self.get_cell_data(self.day_sheet, i, 'G')[0]) if self.get_cell_data(self.day_sheet, i, 'G') else None
+            job['finish'] = int(self.get_cell_data(self.day_sheet, i, 'H')[0]) if self.get_cell_data(self.day_sheet, i, 'G') else None
+            job['isrest'] = self.get_cell_data(self.day_sheet, i, 'J')[0] if self.get_cell_data(self.day_sheet, i, 'J') else False
+            job['required'] = False if job['up'] and job['up'][0] in ['OFF', 'EDO'] else True
+            jobs.append(job)
+        self.shifts = jobs
+        return self
+
+    def get_last_cell(self):
+        for i in range(5,self.day_sheet.max_row,4):
+            cell = self.day_sheet['A' + str(i)]
+            try:
+                int(cell.value)
+                last_cell = cell
+            except:
+                pass
+        logging.debug('last cell is' + str(last_cell))
+        return  last_cell.row + 1
 
 
 
+    def name_positions(self):
+        names = []
+        last_cell = self.get_last_cell()
+        for i in range(5,last_cell,4):
+            names.append(self.get_cell_data(self.day_sheet, i, 'I')[0])
+        return names
 
 
 
-
-
-
-
-
+    def get_cell_data(self, sheet, offset, column):
+        data = []
+        # the cells is always 4 rows wide
+        for line in range(offset,offset +4):
+                cell = sheet[column+str(line)].value
+                if cell is not None:
+                    data.append(cell)
+        return data
 
 
 class Payslips:
@@ -211,28 +252,6 @@ def most_recent_file(location, extention):
 
 
 #password = input('input passy')
-r'''
-p = payslip(r'C:\Users\james\PycharmProjects\payroll_and_roster\Q001830A.2020429.95147.0001453249.pdf')
-#p.extract_dates()
-[print(x) for x in p.standard_table]
-print('#####################')
-[print(x) for x in p.compile_decuctions()]
-
-
-def load():
-    if 'notable_helper.pickle' in os.listdir():
-        with open('notable_helper.pickle', 'rb') as file:
-            manager = pickle.load(file)
-
-    else:
-        manager = System(original_folder, modified_folder)
-
-
-def save():
-    with open('notable_helper.pickle', 'wb') as file:
-        pickle.dump(manager, file)
-
-'''
 
 def most_recent_file(location, extention):
     #returns the most recent file with extention
@@ -243,3 +262,5 @@ def most_recent_file(location, extention):
     return latest_file
 
 roster = Roster(working_dir)
+print(roster.compiled_roster[0].shifts)
+print(roster.compiled_roster[0].name_positions())

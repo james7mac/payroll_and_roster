@@ -12,7 +12,7 @@ logging.debug('Start of program')
 
 
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
-    working_dir =   r'C:\Users\james\Downloads'
+    working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
     slip_folder =       r'C:\Users\james\PycharmProjects\payroll_and_roster'
 
 elif os.environ['COMPUTERNAME'] == 'JAMESPC':
@@ -107,22 +107,27 @@ class Roster:
         self.roster_location = roster_location
         if not hasattr(self, 'compiled_roster'):
             self.compiled_roster = self.roster_build()
+        self.epoch = self.compiled_roster[0].epoch
+        print(self.epoch)
+        print(vars(self))
 
 
     def roster_build(self):
-        comiled_roster = []
+        compiled_roster = []
         if not hasattr(self, 'raw_roster'):
             self.raw_roster = self.get_raw_workbook()
         for day in range(14):
             x = RosterDay(self.raw_roster, day)
             x.extract_shifts()
-            comiled_roster.append(x)
-        return comiled_roster
+            compiled_roster.append(x)
+        del self.raw_roster
+        return compiled_roster
 
 
     def get_raw_workbook(self):
         pickle_location = self.roster_location + '\\' + 'XL.pickle'
         if os.path.exists(pickle_location):
+            print(pickle_location)
             with open(pickle_location, 'rb') as file:
                 unpickled =  pickle.load(file)
                 #TODO: add check to ensure the pickled object matches the newest XL spreadhseet
@@ -141,9 +146,10 @@ class Roster:
 class RosterDay:
     def __init__(self, roster, day):
         self.raw_roster = roster
-        self.day_sheet = roster.worksheets[day]
-        #all dates must be calculated relative to the dat on sheet 0:
         self.date = self.raw_roster.worksheets[0]['F1'].value + timedelta(days=day)
+        self.day_sheet = roster.worksheets[day]
+        self.epoch = self.day_sheet['F1'].value
+        #all dates must be calculated relative to the dat on sheet 0:
         self.shifts = []
 
     def extract_shifts(self):
@@ -157,7 +163,6 @@ class RosterDay:
                 pass
         last_cell = self.get_last_cell()
         logging.debug('last cell is' + str(last_cell))
-
 
 
         jobs = []
@@ -175,6 +180,8 @@ class RosterDay:
             job['required'] = False if job['up'] and job['up'][0] in ['OFF', 'EDO'] else True
             jobs.append(job)
         self.shifts = jobs
+        del self.day_sheet
+        del self.raw_roster
         return self
 
     def get_last_cell(self):
@@ -261,6 +268,14 @@ def most_recent_file(location, extention):
     latest_file = max(list_of_files, key=os.path.getctime)
     return latest_file
 
-roster = Roster(working_dir)
-print(roster.compiled_roster[0].shifts)
-print(roster.compiled_roster[0].name_positions())
+if __name__ == '__main__':
+    if os.path.exists(working_dir+'\\'+'roster.pickle'):
+        with open(working_dir+'\\'+'roster.pickle', 'rb') as file:
+            roster = pickle.load(file)
+    else:
+        roster = Roster(working_dir)
+    print(roster.compiled_roster[0].shifts)
+    with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
+            pickle.dump(roster, file)
+
+

@@ -60,19 +60,10 @@ class Payslips:
         shutil.move(slip_file, new_slip_path)
         return new_slip_path
 
-    def process_payslip(self, slip_path):
-        payslip = Payslip(slip_path)
-        payslip.scan_pdf()
-        payslip.extract_dates()
-        payslip.compile_advice()
-        payslip.compile_decuctions()
-        payslip.compile_leave()
-        payslip.get_hours_earned()
-        payslip.get_hours_worked()
-        payslip.rename_slip()
-        payslip.remove_garbage()
-        self.slips.append(payslip)
-
+    def process_payslip(self, path):
+        PAYSLIP = Payslip(path)
+        PAYSLIP.process()
+        self.slips.append(PAYSLIP)
 
 
 class Payslip:
@@ -81,21 +72,40 @@ class Payslip:
         self.scan_pdf()
         self.advice_table = self.get_advice_table()
         self.standard_table = self.get_standard_table()
+        self.advice = {}
+
+    def process(self):
+        self.scan_pdf()
+        self.extract_dates()
+        self.compile_advice()
+        self.compile_decuctions()
+        self.compile_leave()
+        self.get_hours_earned()
+        self.get_hours_worked()
+        self.remove_garbage()
+        self.extract_pay()
+        del self.advice_table
+        del self.standard_table
+        self.rename_slip()
+
 
     def scan_pdf(self):
         csv_filename = os.path.dirname(self.pdf_path) + '\\' + 'tempfile.csv'
-        print(csv_filename)
         tabula.convert_into(self.pdf_path, csv_filename, output_format="csv", pages='all')
         file = open(csv_filename)
         tabReader = csv.reader(file)
         tablist = list(tabReader)
         self.raw_table =  tablist
 
+    def extract_fortnight(self):
+        return self.standard_table[2][0]
+
     def extract_dates(self):
         fornight_start = self.standard_table[2][0]
         fortnight_end = self.standard_table[2][1]
         format = '%d/%m/%Y'
-        return datetime.strptime(fornight_start, format), datetime.strptime(fortnight_end, format)
+        self.advice['begin'], self.advice['end'] = datetime.strptime(fornight_start, format), datetime.strptime(fortnight_end, format)
+        return self.advice['begin'], self.advice['end']
 
     def find_payment_table(self):
         #returns the range the pay advice table occupies
@@ -128,33 +138,51 @@ class Payslip:
             for i,x in enumerate(data[1:]):
                 data[i+1] = float(x)
             pay.append(data)
+        self.advice['advice'] = pay
         return pay
 
     def compile_decuctions(self):
         deductions = []
-        for deduction in self.advice_table[:2]:
-            duction = deduction[3].split()[1:]
-            deductions.append((' '.join(duction),float(deduction[-1])))
+        for deduction in self.advice_table[:3]:
+            deductions.append(deduction[-1])
+        #super advice in first and third position
+        self.advice['super'] = (deductions[0], deductions[2])
+        self.advice['union_fee'] = deductions[1]
         return deductions
 
     def compile_leave(self):
-        target_rows = ('LSL Full', 'PH Credits', 'EDO', 'Sick Full')
-        leave = dict()
-        for line in self.standard_table:
-            for type in target_rows:
-                if type in line:
-                    for cell in line:
-                        pass
+        self.advice['annual_leave'] =    float(self.standard_table[12][5].split()[0])
+        self.advice['long_service'] =    float(self.standard_table[14][4].split()[0])
+        self.advice['EDO'] =             float(self.standard_table[16][5].split()[0])
+        self.advice['holiday_credits'] = float(self.standard_table[15][5].split()[0])
+        self.advice['SWOMC'] =           float(self.standard_table[19][4].split()[1])
 
+        return self.advice
+
+    def extract_pay(self):
+        self.advice['net_pay'] = float(self.standard_table[9][5])
+        self.advice['tax'] = float(self.standard_table[9][3].split()[-1])
+        self.advice['gross_pay'] = float(self.standard_table[9][0])
+        return self.advice['gross_pay'], self.advice['tax'], self.advice['net_pay']
 
     def get_hours_worked(self):
-        pass
+        target_cell = self.standard_table[19][2]
+        # hrs earned is 6th word of target cell
+        self.advice['hours_worked'] = float(target_cell.split()[5])
+        return self.advice['hours_worked']
 
     def get_hours_earned(self):
-        pass
+        target_cell = self.standard_table[19][2]
+        # hrs earned is 3rd word of target cell
+        self.advice['hours_earned'] = float(target_cell.split()[2])
+        return self.advice['hours_earned']
 
     def rename_slip(self):
-        pass
+        name = '\\Payslip '
+        name = name + self.advice['end'].strftime("%d-%m-%Y") +'.pdf'
+        name = os.path.dirname(self.pdf_path) + name
+        print(name)
+        os.rename(self.pdf_path, name)
 
     def remove_garbage(self):
         pass
@@ -304,6 +332,7 @@ if __name__ == '__main__':
         roster = Roster(working_dir)
     print(roster.compiled_roster[0].shifts)
     payslips = Payslips('t8C3&Lq9uTy0')
+    #payslips.get_payslip()
     slip = most_recent_file(working_dir + '\\payslips', 'pdf')
     print(slip)
     payslips.process_payslip(slip)

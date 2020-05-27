@@ -84,10 +84,8 @@ class Payslip:
         self.get_hours_worked()
         self.remove_garbage()
         self.extract_pay()
-        del self.advice_table
-        del self.standard_table
         self.rename_slip()
-
+        self.remove_garbage()
 
     def scan_pdf(self):
         csv_filename = os.path.dirname(self.pdf_path) + '\\' + 'tempfile.csv'
@@ -185,8 +183,8 @@ class Payslip:
         os.rename(self.pdf_path, name)
 
     def remove_garbage(self):
-        pass
-
+        del self.advice_table
+        del self.standard_table
 
 
 
@@ -205,7 +203,7 @@ class Roster:
         compiled_roster = []
         if not hasattr(self, 'raw_roster'):
             self.raw_roster = self.get_raw_workbook()
-        for day in range(14):
+        for day in range(28):
             x = RosterDay(self.raw_roster, day)
             x.extract_shifts()
             compiled_roster.append(x)
@@ -228,18 +226,36 @@ class Roster:
                 pickle.dump(raw_roster, file)
             return raw_roster
 
-
+    def generate_roster(self, name, weeks_ahead):
+        position = RosterDay.name_list.index(name)
+        since_epoch = datetime.now() - RosterDay.epoch
+        forcast_range = (7*weeks_ahead) + since_epoch.days
+        indiv_roster = []
+        for day in range(since_epoch.days,forcast_range):
+            target_shift = position + (day//28)
+            target_day = day%28
+            shift = self.compiled_roster[target_day].shifts[target_shift]
+            shift['date'] = RosterDay.epoch + timedelta(days=day)
+            indiv_roster.append(shift)
+        for i in indiv_roster:
+            print(i)
 
 
 
 class RosterDay:
+    name_list = []
+    epoch = None
     def __init__(self, roster, day):
         self.raw_roster = roster
         self.date = self.raw_roster.worksheets[0]['F1'].value + timedelta(days=day)
         self.day_sheet = roster.worksheets[day]
-        self.epoch = self.day_sheet['F1'].value
         #all dates must be calculated relative to the dat on sheet 0:
         self.shifts = []
+        if not RosterDay.name_list:
+            RosterDay.name_list = self.name_positions()
+        if not RosterDay.epoch:
+            RosterDay.epoch = self.day_sheet['F1'].value
+
 
     def extract_shifts(self):
         #find the last shift on the normal roster
@@ -269,6 +285,7 @@ class RosterDay:
             job['required'] = False if job['up'] and job['up'][0] in ['OFF', 'EDO'] else True
             jobs.append(job)
         self.shifts = jobs
+
         del self.day_sheet
         del self.raw_roster
         return self
@@ -330,13 +347,17 @@ if __name__ == '__main__':
             roster = pickle.load(file)
     else:
         roster = Roster(working_dir)
-    print(roster.compiled_roster[0].shifts)
-    payslips = Payslips('t8C3&Lq9uTy0')
+    roster.roster_build()
+    print(len(roster.compiled_roster))
+    #print(roster.compiled_roster[0].shifts)
+    #payslips = Payslips('t8C3&Lq9uTy0')
     #payslips.get_payslip()
-    slip = most_recent_file(working_dir + '\\payslips', 'pdf')
-    print(slip)
-    payslips.process_payslip(slip)
-
+    #slip = most_recent_file(working_dir + '\\payslips', 'pdf')
+    #print(slip)
+    #payslips.process_payslip(slip)
+    print(RosterDay.name_list)
+    print(RosterDay.epoch)
+    roster.generate_roster("Macalister", 4)
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
 

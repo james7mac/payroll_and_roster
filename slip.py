@@ -6,6 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
 from datetime import timedelta
+from datetime import time as TIME
+from googlecal import update_calander
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
 logging.debug('Start of program')
@@ -237,8 +239,35 @@ class Roster:
             shift = self.compiled_roster[target_day].shifts[target_shift]
             shift['date'] = RosterDay.epoch + timedelta(days=day)
             indiv_roster.append(shift)
-        for i in indiv_roster:
-            print(i)
+        return indiv_roster
+
+    def update_calander(self, job):
+        print(job)
+        update_calander(self.format_job(job))
+
+    def format_job(self, job):
+        if not job['required']:
+            return None
+        formatted = {}
+        print(job)
+        if not job['isrest']:
+            formatted['summary'] = "Work"
+        else:
+            formatted['summary'] = job['isrest']
+        down = '\n'.join(job['down']) if type(job['down']) == list else job['down']
+        up = '\n'.join(job['up']) if type(job['up']) == list else job['up']
+        formatted['description'] = "{0}\n\nDOWN{1}\n\nUP{2}".format(
+            job['id'], down, up)
+        formatted['description'] = formatted['description'] + '\n' + "get off: " + str(job['dest'])
+        start_string = str(job['start']).rjust(4, '0')
+        end_string =  str(job['finish']).rjust(4, '0')
+        start = datetime.combine(job['date'], TIME(int(start_string[:2]), int(start_string[3:])))
+        end = datetime.combine(job['date'], TIME(int(end_string[:2]), int(end_string[3:])))
+        formatted['start'] = {'dateTime': start.isoformat(), 'timeZone':'Australia/Melbourne'}
+        formatted['end'] = {'dateTime': end.isoformat(), 'timeZone':'Australia/Melbourne'}
+        return formatted
+
+
 
 
 
@@ -255,7 +284,6 @@ class RosterDay:
             RosterDay.name_list = self.name_positions()
         if not RosterDay.epoch:
             RosterDay.epoch = self.day_sheet['F1'].value
-
 
     def extract_shifts(self):
         #find the last shift on the normal roster
@@ -283,6 +311,7 @@ class RosterDay:
             job['finish'] = int(self.get_cell_data(self.day_sheet, i, 'H')[0]) if self.get_cell_data(self.day_sheet, i, 'G') else None
             job['isrest'] = self.get_cell_data(self.day_sheet, i, 'J')[0] if self.get_cell_data(self.day_sheet, i, 'J') else False
             job['required'] = False if job['up'] and job['up'][0] in ['OFF', 'EDO'] else True
+            job['debug'] = [self.day_sheet.title, i]
             jobs.append(job)
         self.shifts = jobs
 
@@ -302,13 +331,14 @@ class RosterDay:
         return  last_cell.row + 1
 
 
-
     def name_positions(self):
         names = []
         last_cell = self.get_last_cell()
         for i in range(5,last_cell,4):
             names.append(self.get_cell_data(self.day_sheet, i, 'I')[0])
         return names
+
+
 
 
 
@@ -320,6 +350,8 @@ class RosterDay:
                 if cell is not None:
                     data.append(cell)
         return data
+
+
 
 
 
@@ -341,6 +373,10 @@ def most_recent_file(location, extention):
     latest_file = max(list_of_files, key=os.path.getctime)
     return latest_file
 
+
+
+
+
 if __name__ == '__main__':
     if os.path.exists(working_dir+'\\'+'roster.pickle'):
         with open(working_dir+'\\'+'roster.pickle', 'rb') as file:
@@ -357,8 +393,10 @@ if __name__ == '__main__':
     #payslips.process_payslip(slip)
     print(RosterDay.name_list)
     print(RosterDay.epoch)
-    roster.generate_roster("Macalister", 4)
+    roster.update_calander(roster.generate_roster("Macalister", 10)[7])
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
 
 
+
+# pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib

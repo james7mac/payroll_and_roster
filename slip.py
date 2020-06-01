@@ -245,6 +245,24 @@ class Roster:
         print(job)
         update_calander(self.format_job(job))
 
+    def add_destination(self, job, destination):
+        offset = 0
+        print(destination)
+        job2 = ''
+        for i, j in enumerate(job):
+
+            print(job)
+            if 'prep' in j.lower():
+                print(j)
+
+                offset += 1
+                continue
+            else:
+                print(i-offset)
+                job2 += '  dest: ' + destination[i - offset]
+        print(job2)
+        return job2
+
     def format_job(self, job):
         if not job['required']:
             return None
@@ -256,15 +274,21 @@ class Roster:
             formatted['summary'] = job['isrest']
         down = '\n'.join(job['down']) if type(job['down']) == list else job['down']
         up = '\n'.join(job['up']) if type(job['up']) == list else job['up']
-        formatted['description'] = "{0}\n\nDOWN{1}\n\nUP{2}".format(
-            job['id'], down, up)
-        formatted['description'] = formatted['description'] + '\n' + "get off: " + str(job['dest'])
+        if type(job['down']) == list:
+            down = '\n'.join(self.add_destination(job['down'], job['down dest']))
+        else:
+            down = job['down'] + '   dest: ' + job['down dest']
+
+        print(job['down'])
+        formatted['description'] = "{0}\n\nDOWN\n{1}\n        DEST: {3}\n\n UP\n{2}".format(
+            '', down, up, job['dest'])
         start_string = str(job['start']).rjust(4, '0')
         end_string =  str(job['finish']).rjust(4, '0')
         start = datetime.combine(job['date'], TIME(int(start_string[:2]), int(start_string[3:])))
         end = datetime.combine(job['date'], TIME(int(end_string[:2]), int(end_string[3:])))
         formatted['start'] = {'dateTime': start.isoformat(), 'timeZone':'Australia/Melbourne'}
         formatted['end'] = {'dateTime': end.isoformat(), 'timeZone':'Australia/Melbourne'}
+        formatted['description'] = formatted ['description'] + '\n\n' + str(job['id'])
         return formatted
 
 
@@ -306,9 +330,10 @@ class RosterDay:
             job['id'] = self.get_cell_data(self.day_sheet, i, 'B') if self.get_cell_data(self.day_sheet, i, 'B') else None
             job['down'] = self.get_cell_data(self.day_sheet, i, 'C') if self.get_cell_data(self.day_sheet, i, 'C')  else None
             job['up'] = self.get_cell_data(self.day_sheet, i, 'E') if self.get_cell_data(self.day_sheet, i, 'E') else None
-            job['dest'] = self.get_cell_data(self.day_sheet, i, 'D') if self.get_cell_data(self.day_sheet, i, 'D') else None
+            job['down dest'] = self.get_cell_data(self.day_sheet, i, 'D') if self.get_cell_data(self.day_sheet, i, 'D') else None
+            job['up dest'] = self.get_cell_data(self.day_sheet, i, 'F') if self.get_cell_data(self.day_sheet, i, 'F') else None
             job['start'] = int(self.get_cell_data(self.day_sheet, i, 'G')[0]) if self.get_cell_data(self.day_sheet, i, 'G') else None
-            job['finish'] = int(self.get_cell_data(self.day_sheet, i, 'H')[0]) if self.get_cell_data(self.day_sheet, i, 'G') else None
+            job['finish'] = int(self.get_cell_data(self.day_sheet, i, 'H')[0]) if self.get_cell_data(self.day_sheet, i, 'H') else None
             job['isrest'] = self.get_cell_data(self.day_sheet, i, 'J')[0] if self.get_cell_data(self.day_sheet, i, 'J') else False
             job['required'] = False if job['up'] and job['up'][0] in ['OFF', 'EDO'] else True
             job['debug'] = [self.day_sheet.title, i]
@@ -393,7 +418,8 @@ if __name__ == '__main__':
     #payslips.process_payslip(slip)
     print(RosterDay.name_list)
     print(RosterDay.epoch)
-    roster.update_calander(roster.generate_roster("Macalister", 10)[7])
+    #roster.update_calander(roster.generate_roster("Macalister", 10)[8])
+    print(roster.format_job(roster.generate_roster("Macalister", 10)[6]))
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
 

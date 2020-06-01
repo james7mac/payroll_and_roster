@@ -7,7 +7,7 @@ from selenium.webdriver.common.keys import Keys
 from datetime import datetime
 from datetime import timedelta
 from datetime import time as TIME
-from googlecal import update_calander
+from googlecal import update_calander, check_work_event, delete_event, get_creds
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
 logging.debug('Start of program')
@@ -241,54 +241,65 @@ class Roster:
             indiv_roster.append(shift)
         return indiv_roster
 
-    def update_calander(self, job):
-        print(job)
-        update_calander(self.format_job(job))
+    def create_calander_event(self, job, service):
+        existing_event = check_work_event(job['date'], service)
+        print(self.format_job(job))
+        if existing_event:
+            delete_event(existing_event, service)
+        update_calander(self.format_job(job), service)
+        logging.debug('CAL UPDATE: ' + str(job['date']))
+
+    def update_calander(self, jobs, service):
+        for job in jobs:
+            print(job)
+            if job['required']:
+                self.create_calander_event(job, service)
+            else:
+                existing_event = check_work_event(job['date'], service)
+                if existing_event:
+                    delete_event(existing_event, service)
 
     def add_destination(self, job, destination):
         offset = 0
-        print(destination)
         job2 = ''
         for i, j in enumerate(job):
-
-            print(job)
             if 'prep' in j.lower():
-                print(j)
-
                 offset += 1
                 continue
             else:
-                print(i-offset)
-                job2 += '  dest: ' + destination[i - offset]
-        print(job2)
+                try:
+                    dest = destination[i - offset] if type(destination) == list else destination
+                    job2 += str(job[i]) + ',  dest: ' + str(dest) + '\n'
+                except:
+                    job2 += "\ndestError, Raw destination info:\n" + str(destination)
         return job2
 
     def format_job(self, job):
         if not job['required']:
             return None
         formatted = {}
-        print(job)
         if not job['isrest']:
             formatted['summary'] = "Work"
         else:
             formatted['summary'] = job['isrest']
-        down = '\n'.join(job['down']) if type(job['down']) == list else job['down']
-        up = '\n'.join(job['up']) if type(job['up']) == list else job['up']
         if type(job['down']) == list:
-            down = '\n'.join(self.add_destination(job['down'], job['down dest']))
+            down = self.add_destination(job['down'], job['down dest'])
         else:
-            down = job['down'] + '   dest: ' + job['down dest']
+            down = str(job['down']) + '   dest: ' + str(job['down dest'])
+        if type(job['up']) == list and type(job['up dest']) == list:
+            up = self.add_destination(job['up'], job['up dest'])
+        else:
+            up = str(job['up']) + '   dest: ' + str(job['up dest'])
 
-        print(job['down'])
-        formatted['description'] = "{0}\n\nDOWN\n{1}\n        DEST: {3}\n\n UP\n{2}".format(
-            '', down, up, job['dest'])
+        formatted['description'] = "DOWN\n{0}\n\n UP\n{1}".format(
+            down, up)
         start_string = str(job['start']).rjust(4, '0')
         end_string =  str(job['finish']).rjust(4, '0')
-        start = datetime.combine(job['date'], TIME(int(start_string[:2]), int(start_string[3:])))
+        start = datetime.combine(job['date'], TIME(int(start_string[:2]), int(start_string[2:])))
         end = datetime.combine(job['date'], TIME(int(end_string[:2]), int(end_string[3:])))
         formatted['start'] = {'dateTime': start.isoformat(), 'timeZone':'Australia/Melbourne'}
         formatted['end'] = {'dateTime': end.isoformat(), 'timeZone':'Australia/Melbourne'}
-        formatted['description'] = formatted ['description'] + '\n\n' + str(job['id'])
+        formatted['description'] = formatted ['description'] + '\n\n' + ' '.join(job['id'])
         return formatted
 
 
@@ -410,16 +421,19 @@ if __name__ == '__main__':
         roster = Roster(working_dir)
     roster.roster_build()
     print(len(roster.compiled_roster))
+    service = get_creds()
     #print(roster.compiled_roster[0].shifts)
     #payslips = Payslips('t8C3&Lq9uTy0')
     #payslips.get_payslip()
     #slip = most_recent_file(working_dir + '\\payslips', 'pdf')
     #print(slip)
     #payslips.process_payslip(slip)
-    print(RosterDay.name_list)
-    print(RosterDay.epoch)
-    #roster.update_calander(roster.generate_roster("Macalister", 10)[8])
-    print(roster.format_job(roster.generate_roster("Macalister", 10)[6]))
+    #print(RosterDay.name_list)
+    #print(RosterDay.epoch)
+    ros = roster.generate_roster("Macalister", weeks_ahead=6)
+    roster.update_calander(ros, service)
+
+
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
 

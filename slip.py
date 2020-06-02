@@ -193,6 +193,7 @@ class Payslip:
 
 class Roster:
     def __init__(self, roster_location):
+
         self.roster_location = roster_location
         if not hasattr(self, 'compiled_roster'):
             self.compiled_roster = self.roster_build()
@@ -233,7 +234,7 @@ class Roster:
         since_epoch = datetime.now() - RosterDay.epoch
         forcast_range = (7*weeks_ahead) + since_epoch.days
         indiv_roster = []
-        for day in range(since_epoch.days,forcast_range):
+        for day in range(since_epoch.days+forcast_range):
             target_shift = position + (day//28)
             target_day = day%28
             shift = self.compiled_roster[target_day].shifts[target_shift]
@@ -400,15 +401,43 @@ def most_recent_file(location, extention):
     return latest_file
 
 
-#password = input('input passy')
 
-def most_recent_file(location, extention):
-    #returns the most recent file with extention
-    path = location + '\\*.' + extention
-    list_of_files = glob.glob(path)  # * means all if need specific format then *.csv
-    latest_file = max(list_of_files, key=os.path.getctime)
-    return latest_file
+class live_roster:
+    def __init__(self):
+        if os.path.exists(working_dir + '\\' + 'roster.pickle'):
+            with open(working_dir + '\\' + 'roster.pickle', 'rb') as file:
+                self.master_roster = pickle.load(file)
+        else:
+            self.master_roster = Roster(working_dir)
+        self.name = "Macalister"
+        self.generated_roster = self.master_roster.generate_roster(self.name,52)
+        self.swaps = []
 
+    def swap_day(self, person, date, line):
+        #accepts date object
+        day_index = self.since_epoch(date) % 28
+        days_since_epoch = self.since_epoch(date)
+        self.generated_roster[days_since_epoch] = self.master_roster.compiled_roster[day_index].shifts[line-1]
+        self.swaps.append([person, date, line])
+        #print(self.swaps)
+
+    def swap_days(self, person, dates, line):
+        #dates is a tuple first date and last date
+        num_of_days = (dates[1]-dates[0]).days
+        base = dates[0]
+        date_list = [base + timedelta(days=x) for x in range(num_of_days)]
+        print(date_list)
+        for day in date_list:
+            print(day)
+            self.swap_day(person, day, line)
+
+    def since_epoch(self, date):
+        return (date - self.master_roster.epoch.date()).days
+
+
+
+
+        
 
 
 
@@ -421,7 +450,7 @@ if __name__ == '__main__':
         roster = Roster(working_dir)
     roster.roster_build()
     print(len(roster.compiled_roster))
-    service = get_creds()
+    #service = get_creds()
     #print(roster.compiled_roster[0].shifts)
     #payslips = Payslips('t8C3&Lq9uTy0')
     #payslips.get_payslip()
@@ -430,8 +459,20 @@ if __name__ == '__main__':
     #payslips.process_payslip(slip)
     #print(RosterDay.name_list)
     #print(RosterDay.epoch)
-    ros = roster.generate_roster("Macalister", weeks_ahead=6)
-    roster.update_calander(ros, service)
+    #ros = roster.generate_roster("Macalister", weeks_ahead=6)
+    live = live_roster()
+    dat= datetime.now().date()
+    print(dat)
+    dat2 = dat+timedelta(days=3)
+
+    for d in live.generated_roster[live.since_epoch(dat):live.since_epoch(dat)+4]:
+        print(d)
+    #live.swap_day(1,dat,3)
+    print("#################")
+    live.swap_days('a',(dat,dat2), 4)
+    for d in live.generated_roster[live.since_epoch(dat):live.since_epoch(dat) + 4]:
+        print(d)
+
 
 
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
@@ -440,3 +481,10 @@ if __name__ == '__main__':
 
 
 # pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+# TODO: add shift swap functionality - swap class?
+# TODO: add interface
+# TODO: fix XL.pickle and roster.pickle
+# TODO: add py.test tests
+# TODO: fix calander api max call errors
+# TODO: add functionality to reconcile reported hours worked vs reported hours earned

@@ -403,12 +403,8 @@ def most_recent_file(location, extention):
 
 
 class live_roster:
-    def __init__(self):
-        if os.path.exists(working_dir + '\\' + 'roster.pickle'):
-            with open(working_dir + '\\' + 'roster.pickle', 'rb') as file:
-                self.master_roster = pickle.load(file)
-        else:
-            self.master_roster = Roster(working_dir)
+    def __init__(self, roster):
+        self.master_roster = roster
         self.name = "Macalister"
         self.generated_roster = self.master_roster.generate_roster(self.name,52)
         self.swaps = []
@@ -419,16 +415,13 @@ class live_roster:
         days_since_epoch = self.since_epoch(date)
         self.generated_roster[days_since_epoch] = self.master_roster.compiled_roster[day_index].shifts[line-1]
         self.swaps.append([person, date, line])
-        #print(self.swaps)
 
     def swap_days(self, person, dates, line):
         #dates is a tuple first date and last date
         num_of_days = (dates[1]-dates[0]).days
         base = dates[0]
         date_list = [base + timedelta(days=x) for x in range(num_of_days)]
-        print(date_list)
         for day in date_list:
-            print(day)
             self.swap_day(person, day, line)
 
     def since_epoch(self, date):
@@ -460,7 +453,7 @@ if __name__ == '__main__':
     #print(RosterDay.name_list)
     #print(RosterDay.epoch)
     #ros = roster.generate_roster("Macalister", weeks_ahead=6)
-    live = live_roster()
+    live = live_roster(roster)
     dat= datetime.now().date()
     print(dat)
     dat2 = dat+timedelta(days=3)
@@ -469,7 +462,7 @@ if __name__ == '__main__':
         print(d)
     #live.swap_day(1,dat,3)
     print("#################")
-    live.swap_days('a',(dat,dat2), 4)
+    live.swap_days('a',(dat,dat2), 83)
     for d in live.generated_roster[live.since_epoch(dat):live.since_epoch(dat) + 4]:
         print(d)
 

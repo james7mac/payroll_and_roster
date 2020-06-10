@@ -26,6 +26,11 @@ else:
     Exception()
 
 
+
+
+
+
+
 class Payslips:
     def __init__(self, password):
         self.url = r'https://secure.adppayroll.com.au/'
@@ -193,13 +198,11 @@ class Payslip:
 
 class Roster:
     def __init__(self, roster_location):
-
         self.roster_location = roster_location
         if not hasattr(self, 'compiled_roster'):
             self.compiled_roster = self.roster_build()
         self.epoch = self.compiled_roster[0].epoch
-        print(self.epoch)
-        print(vars(self))
+
 
 
     def roster_build(self):
@@ -223,6 +226,7 @@ class Roster:
                 #TODO: add check to ensure the pickled object matches the newest XL spreadhseet
                 return unpickled
         else:
+            print(self.roster_location)
             most_recent = most_recent_file(self.roster_location, 'xlsx')
             raw_roster = openpyxl.load_workbook(most_recent, data_only=True)
             with open(pickle_location, 'wb') as file:
@@ -232,9 +236,9 @@ class Roster:
     def generate_roster(self, name, weeks_ahead):
         position = RosterDay.name_list.index(name)
         since_epoch = datetime.now() - RosterDay.epoch
-        forcast_range = (7*weeks_ahead) + since_epoch.days
+        forcast_range = (7*weeks_ahead)
         indiv_roster = []
-        for day in range(since_epoch.days+forcast_range):
+        for day in range(forcast_range+since_epoch.days):
             target_shift = position + (day//28)
             target_day = day%28
             shift = self.compiled_roster[target_day].shifts[target_shift]
@@ -394,9 +398,8 @@ class RosterDay:
 
 def most_recent_file(location, extention):
     #returns the most recent file with extention
-    path = location + '\\' + extention
+    path = location + '\\*' + extention
     list_of_files = glob.glob(path)  # * means all if need specific format then *.csv
-    print(list_of_files)
     latest_file = max(list_of_files, key=os.path.getctime)
     return latest_file
 
@@ -406,7 +409,7 @@ class live_roster:
     def __init__(self, roster):
         self.master_roster = roster
         self.name = "Macalister"
-        self.generated_roster = self.master_roster.generate_roster(self.name,52)
+        self.generated_roster = self.master_roster.generate_roster(self.name,48)
         self.swaps = []
 
     def swap_day(self, person, date, line):
@@ -430,19 +433,27 @@ class live_roster:
 
 
 
-        
 
 
-
-
-if __name__ == '__main__':
+def unpickle():
+    print(working_dir)
     if os.path.exists(working_dir+'\\'+'roster.pickle'):
         with open(working_dir+'\\'+'roster.pickle', 'rb') as file:
-            roster = pickle.load(file)
+            roster =  pickle.load(file)
     else:
-        roster = Roster(working_dir)
+        roster =  Roster(working_dir)
+        roster.roster_build()
+
+    print(roster)
+    return roster
+
+
+
+
+def main():
+    roster = unpickle()
     roster.roster_build()
-    print(len(roster.compiled_roster))
+    #print(len(roster.compiled_roster))
     #service = get_creds()
     #print(roster.compiled_roster[0].shifts)
     #payslips = Payslips('t8C3&Lq9uTy0')
@@ -468,8 +479,12 @@ if __name__ == '__main__':
 
 
 
+
+
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
+
+#main()
 
 
 

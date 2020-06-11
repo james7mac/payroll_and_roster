@@ -2,6 +2,7 @@ import PySimpleGUIQt as sg
 import slip, os, pickle
 from datetime import datetime
 from calendar import monthrange
+from collections import deque
 from datetime import timedelta
 
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
@@ -42,9 +43,42 @@ def fake_date():
     pass
 fake_date.day = 'NA'
 
+class select_date():
+    def __init__(self):
+        self.dates = deque(maxlen=2)
+        self.year = {}
+
+    def get_tile_value(self, event):
+        return event[4:-2]
+
+    def give_tile(self):
+        pass
+
+    def get_date(self, event):
+        #todo: this is broken
+        datetime(current_year, current_month, self.get_tile_value(event))
+
+    def date(self, event):
+        print(event)
+        self.dates.append(event)
+
+    def shade(self, month_name):
+        month = range(0,41)
+        if month_name not in self.year:
+            self.year[month_name] = []
+            for t in month:
+                print(window[enc_btn(t)])
+                self.year[month_name].append((window[enc_btn(t)].BackgroundColor))
+        for tile in month:
+            print(self.year[month_name][tile])
+            window[enc_btn(tile)].update(button_color=('white', self.year[month_name][tile]))
+        for tile in self.dates:
+            window[tile].update(button_color=('green','#0079D3'))
 
 
-def change_month(roster, month, year):
+
+
+def change_month(roster, month, year, selector):
     roster_month = days_in_month(roster, month, year)
     prev_month = days_in_month(roster,month -1, year if month > 1 else days_in_month(roster,12,year-1))
     next_month = days_in_month(roster,month + 1,year) if month < 12 else days_in_month(roster,1, year+1)
@@ -83,6 +117,8 @@ def change_month(roster, month, year):
         button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
         window[enc_btn(i)].update(button_text,button_color=('white', 'grey'))
         calender_index +=1
+    print(month)
+    selector.shade(month)
 
 
 
@@ -108,7 +144,7 @@ if __name__ == "__main__":
     sg.theme('LightGrey')
 
     layout = [
-        [sg.Button('Previous', key="-PREV-"), sg.Text('JUN', justification='center', font=ff, key='-MONTH-'), sg.Button('Next', key='-NEXT-')],
+        [sg.Button('Previous', key="-PREV-"), sg.Text('', justification='center', font=ff, key='-MONTH-'), sg.Button('Next', key='-NEXT-')],
         [Txt_day('Sun'), Txt_day('Mon'), Txt_day('Tue'), Txt_day('Wed'), Txt_day('Thu'), Txt_day('Fri'),
          Txt_day(' Sat')],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
@@ -123,12 +159,13 @@ if __name__ == "__main__":
     window.finalize()
     current_month = datetime.now().month
     current_year = datetime.now().year
-    change_month(my_roster, current_month, datetime.now().year)
+    selector = select_date()
+    change_month(my_roster, current_month, datetime.now().year, selector)
 
 
     while True:  # Event Loop
         event, values = window.read()
-        print(event[:5], values)
+        print(event, values)
         if event in (None, 'Exit'):
             break
         if event == 'Show':
@@ -137,19 +174,19 @@ if __name__ == "__main__":
             # window['-OUTPUT-'].update(values['-IN-'])
         if event == '-NEXT-':
             current_month,current_year = ((current_month +1,current_year) if current_month <12 else (1,current_year+1))
-            change_month(my_roster, current_month, current_year)
+            change_month(my_roster, current_month, current_year, selector)
+
         if event == '-PREV-':
             year = datetime.now().year
             if master_roster.epoch.month < datetime(year, current_month, 1).month:
                 current_month, current_year = ((current_month - 1, current_year) if current_month > 2 else (12, current_year -1))
-                change_month(my_roster, current_month, current_year)
+                change_month(my_roster, current_month, current_year, selector)
+
         if event[:4] == "--XD":
-            if not 'day1' in locals():
-                print(event[4:-2])
-                day1 = datetime(current_year, current_month, int(event[4:-2]))
-            elif not 'day2' in locals():
-                day2= datetime(current_year, current_month, int(event[4:-2]))
-            print(day1)
+            selector.date(event)
+
+
+
 
 
     window.close()

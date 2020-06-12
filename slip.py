@@ -1,7 +1,7 @@
 #! python3
 # slip.py - retrieves pdf from adp and then scrapes data from that pdf
 
-import time, pyautogui, os, tabula, csv, openpyxl, glob, pickle, logging, shutil
+import time, os, tabula, csv, openpyxl, glob, pickle, logging, shutil
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime

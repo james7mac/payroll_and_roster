@@ -16,7 +16,7 @@ elif os.environ['COMPUTERNAME'] == 'JAMESPC':
     slip_inbox = r'C:\Users\james\Downloads'
 else:
     Exception()
-
+month_names = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 
 def enc_btn(day):
     return '--XD' + str(day) + '--'
@@ -43,7 +43,7 @@ def fake_date():
     pass
 fake_date.day = 'NA'
 
-class select_date():
+class select_date:
     def __init__(self):
         self.dates = deque(maxlen=2)
         self.year = {}
@@ -59,21 +59,50 @@ class select_date():
         datetime(current_year, current_month, self.get_tile_value(event))
 
     def date(self, event):
-        print(event)
-        self.dates.append(event)
+        month = month_names.index(window['-MONTH-'].DisplayText.upper())
+        self.dates.append((event, month))
+        self.shade(month+1)
 
     def shade(self, month_name):
         month = range(0,41)
         if month_name not in self.year:
             self.year[month_name] = []
             for t in month:
-                print(window[enc_btn(t)])
-                self.year[month_name].append((window[enc_btn(t)].BackgroundColor))
+                self.year[month_name].append((window[enc_btn(t)].ButtonColor))
         for tile in month:
-            print(self.year[month_name][tile])
-            window[enc_btn(tile)].update(button_color=('white', self.year[month_name][tile]))
-        for tile in self.dates:
-            window[tile].update(button_color=('green','#0079D3'))
+            window[enc_btn(tile)].update(button_color=('white', self.year[month_name][tile][1]))
+        #check the two selecected dates occur in the same month
+        if len(self.dates) == 2:
+            if self.dates[0][1]== self.dates[1][1]:
+                print('YES YES')
+                tiles = [int(self.get_tile_value(self.dates[0][0])), int(self.get_tile_value(self.dates[1][0]))]
+                tiles.sort()
+                tile1, tile2 = tiles
+                for tile in range(int(tile1),int(tile2)+1):
+                    window[enc_btn(tile)].update(button_color=('white', 'black'))
+
+
+            else:
+                tiles = list(self.dates)
+                print(tiles)
+                tiles.sort(key=lambda x:x[0])
+                print(tiles)
+                if month_names.index(window['-MONTH-'].DisplayText.upper()) == tiles[0][1]:
+                    print('YES')
+                    for tile in range(int(tiles[0][1]),41):
+                        window[enc_btn(tile)].update(button_color=('white', 'black'))
+
+
+        if len(self.dates) == 1:
+            if month_names.index(window['-MONTH-'].DisplayText.upper()) == self.dates[0][1]:
+                window[self.dates[0][0]].update(button_color=('white', 'black'))
+
+        window.refresh()
+
+    def default_shade(self):
+        pass
+
+
 
 
 
@@ -96,7 +125,6 @@ def change_month(roster, month, year, selector):
     prev_month = [i for i in prev_month if i['date'].year == roster_month[0]['date'].year]
 
     prev_month = prev_month[-initial_weekday:]
-    print(month)
     previous_month_num = month-1 if month != 1 else 12
     num_days_prev = monthrange(roster_month[0]['date'].year, previous_month_num)[1]
     remaining_days = num_days_prev - initial_weekday
@@ -110,14 +138,13 @@ def change_month(roster, month, year, selector):
     remaining_spots = 42-initial_weekday-len(roster_month)
     next_month = next_month[:remaining_spots]
     calender_index = 0
-    print(next_month)
-    [print(i['date']) for i in next_month]
     for i in range(initial_weekday+len(roster_month),42):
         shift = next_month[calender_index]
         button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
         window[enc_btn(i)].update(button_text,button_color=('white', 'grey'))
         calender_index +=1
-    print(month)
+
+
     selector.shade(month)
 
 
@@ -153,7 +180,7 @@ if __name__ == "__main__":
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [sg.Button('Show'), sg.Button('Exit')]]
+        [sg.Button('Show'), sg.Button('Exit'), sg.Button('OK', button_color=("Black", "Black"), key="TEST")]]
 
     window = sg.Window(date, layout)
     window.finalize()
@@ -169,7 +196,7 @@ if __name__ == "__main__":
         if event in (None, 'Exit'):
             break
         if event == 'Show':
-            print('ANB')
+            window['TEST'].update(button_color=('Blue', 'Blue'))
             # Update the "output" text element to be the value of "input" element
             # window['-OUTPUT-'].update(values['-IN-'])
         if event == '-NEXT-':
@@ -187,7 +214,7 @@ if __name__ == "__main__":
 
 
 
-
+        window.refresh()
 
     window.close()
 

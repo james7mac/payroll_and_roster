@@ -58,7 +58,6 @@ class Payslips:
         xpath_p2 = ']/td[3]/ng-component[1]/adp-button[1]'
         browser.find_element_by_xpath(xpath_p1 + '1' + xpath_p2).click()
         time.sleep(3)
-        pyautogui.press('enter')
         time.sleep(2)
         browser.close()
         time.sleep(2)

@@ -30,6 +30,12 @@ Btn_day.count = 0
 def Txt_day(*args, **kwargs):
     return (sg.Text(*args, size_px=(70, 30), font=ff, justification='center', background_color='lightgrey',
                     **kwargs))
+def Btn_swap(*args, **kwargs):
+    return (sg.Button(*args, "Swap",size_px=(520, 30), font=(f, 12), key=(enc_btn('-SWAP-')), **kwargs))
+def In(*args, **kwargs):
+    return (sg.InputText(*args, font=(f, 12), **kwargs))
+def Txt(*args, **kwargs):
+    return (sg.Text(*args, font=(f, 12), **kwargs))
 
 def days_in_month(roster, month, year):
     days_in = []
@@ -45,7 +51,7 @@ fake_date.day = 'NA'
 
 class select_date:
     def __init__(self):
-        self.dates = deque(maxlen=2)
+        self.dates = []
         self.year = {}
 
     def get_tile_value(self, event):
@@ -59,9 +65,14 @@ class select_date:
         datetime(current_year, current_month, self.get_tile_value(event))
 
     def date(self, event):
-        month = month_names.index(window['-MONTH-'].DisplayText.upper())
+        month = month_names.index(window['-MONTH-'].DisplayText.upper()) + 1
+        if (event, month) in self.dates:
+            self.dates.remove((event, month))
+            self.shade(month)
+            return
         self.dates.append((event, month))
-        self.shade(month+1)
+        self.shade(month)
+
 
     def shade(self, month_name):
         month = range(0,41)
@@ -71,36 +82,10 @@ class select_date:
                 self.year[month_name].append((window[enc_btn(t)].ButtonColor))
         for tile in month:
             window[enc_btn(tile)].update(button_color=('white', self.year[month_name][tile][1]))
-        #check the two selecected dates occur in the same month
-        if len(self.dates) == 2:
-            if self.dates[0][1]== self.dates[1][1]:
-                print('YES YES')
-                tiles = [int(self.get_tile_value(self.dates[0][0])), int(self.get_tile_value(self.dates[1][0]))]
-                tiles.sort()
-                tile1, tile2 = tiles
-                for tile in range(int(tile1),int(tile2)+1):
-                    window[enc_btn(tile)].update(button_color=('white', 'black'))
 
-
-            else:
-                tiles = list(self.dates)
-                print(tiles)
-                tiles.sort(key=lambda x:x[0])
-                print(tiles)
-                if month_names.index(window['-MONTH-'].DisplayText.upper()) == tiles[0][1]:
-                    print('YES')
-                    for tile in range(int(tiles[0][1]),41):
-                        window[enc_btn(tile)].update(button_color=('white', 'black'))
-
-
-        if len(self.dates) == 1:
-            if month_names.index(window['-MONTH-'].DisplayText.upper()) == self.dates[0][1]:
-                window[self.dates[0][0]].update(button_color=('white', 'black'))
-
-        window.refresh()
-
-    def default_shade(self):
-        pass
+        for selected in self.dates:
+            if month_name == selected[1]:
+                window[selected[0]].update(button_color=('white', 'black'))
 
 
 
@@ -108,6 +93,7 @@ class select_date:
 
 
 def change_month(roster, month, year, selector):
+
     roster_month = days_in_month(roster, month, year)
     prev_month = days_in_month(roster,month -1, year if month > 1 else days_in_month(roster,12,year-1))
     next_month = days_in_month(roster,month + 1,year) if month < 12 else days_in_month(roster,1, year+1)
@@ -146,6 +132,8 @@ def change_month(roster, month, year, selector):
 
 
     selector.shade(month)
+    print("selector?")
+
 
 
 
@@ -170,6 +158,8 @@ if __name__ == "__main__":
     ff = (f, 14)
     sg.theme('LightGrey')
 
+    col1 = [sg.Listbox(values=month_names, size=(20,20), key='-SWAPHIST-')]
+
     layout = [
         [sg.Button('Previous', key="-PREV-"), sg.Text('', justification='center', font=ff, key='-MONTH-'), sg.Button('Next', key='-NEXT-')],
         [Txt_day('Sun'), Txt_day('Mon'), Txt_day('Tue'), Txt_day('Wed'), Txt_day('Thu'), Txt_day('Fri'),
@@ -180,7 +170,12 @@ if __name__ == "__main__":
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [sg.Button('Show'), sg.Button('Exit'), sg.Button('OK', button_color=("Black", "Black"), key="TEST")]]
+        [sg.Text('', size=[1,1])],
+        [Txt('Swap with: '), In('name'), Txt('into line: '), In('0')],
+        [Btn_swap()],
+        [sg.Button('Exit')],
+        [sg.Listbox(values=month_names, key='-SWAPHIST-')]
+    ]
 
     window = sg.Window(date, layout)
     window.finalize()

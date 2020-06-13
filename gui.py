@@ -31,7 +31,7 @@ def Txt_day(*args, **kwargs):
     return (sg.Text(*args, size_px=(70, 30), font=ff, justification='center', background_color='lightgrey',
                     **kwargs))
 def Btn_swap(*args, **kwargs):
-    return (sg.Button(*args, "Swap",size_px=(520, 30), font=(f, 12), key=(enc_btn('-SWAP-')), **kwargs))
+    return (sg.Button(*args, "Swap",size_px=(520, 30), font=(f, 12), key=('-SWAP-'), **kwargs))
 def In(*args, **kwargs):
     return (sg.InputText(*args, font=(f, 12), **kwargs))
 def Txt(*args, **kwargs):
@@ -171,10 +171,10 @@ if __name__ == "__main__":
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [sg.Text('', size=[1,1])],
-        [Txt('Swap with: '), In('name'), Txt('into line: '), In('0')],
+        [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
         [sg.Button('Exit')],
-        [sg.Listbox(values=month_names, key='-SWAPHIST-')]
+        [sg.Listbox([],key='-SWAPLIST-')]
     ]
 
     window = sg.Window(date, layout)
@@ -206,6 +206,19 @@ if __name__ == "__main__":
 
         if event[:4] == "--XD":
             selector.date(event)
+
+        if event == "-SWAP-":
+            print(window['-SWAPLIST-'].Values)
+            swap_to_line = values['-INLINE-']
+            swap_with = values['-INSWAP-']
+            swap_dates = selector.dates
+            dates = str(swap_dates)
+            formatted_entry = swap_with + swap_to_line.rjust(20) + dates.rjust(50)
+            if len(window['-SWAPLIST-'].Values) != 0:
+                print([formatted_entry].extend(window['-SWAPLIST-'].Values))
+                window['-SWAPLIST-'].update([formatted_entry].extend(window['-SWAPLIST-'].Values))
+            else:
+                window['-SWAPLIST-'].update([formatted_entry])
 
 
 

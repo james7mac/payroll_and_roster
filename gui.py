@@ -1,5 +1,5 @@
 import PySimpleGUIQt as sg
-import slip, os, pickle
+import slip, os, pickle, json
 from datetime import datetime
 from calendar import monthrange
 from collections import deque
@@ -40,14 +40,21 @@ def Txt(*args, **kwargs):
 def days_in_month(roster, month, year):
     days_in = []
     for d in roster.generated_roster:
+        print(d)
         if d['date'].month == month:
                 #and d['date'].year == datetime.now().year:
             days_in.append(d)
     return days_in
 
+def date_in_roster(roster, date):
+    for d in roster:
+        if d['date'] == date:
+            return date
+
 def fake_date():
     pass
 fake_date.day = 'NA'
+
 
 class select_date:
     def __init__(self):
@@ -57,19 +64,19 @@ class select_date:
     def get_tile_value(self, event):
         return event[4:-2]
 
-    def give_tile(self):
-        pass
-
     def get_date(self, event):
-        #todo: this is broken
-        datetime(current_year, current_month, self.get_tile_value(event))
+        return datetime(current_year, current_month, int(self.get_tile_value(event)))
 
     def date(self, event):
+        print(window[event].ButtonColor[1])
+        if window[event].ButtonColor[1] != buttonc0l[1] and window[event].ButtonColor[1] != 'black':
+            return
         month = month_names.index(window['-MONTH-'].DisplayText.upper()) + 1
         if (event, month) in self.dates:
             self.dates.remove((event, month))
             self.shade(month)
             return
+        date = self.get_date(event)
         self.dates.append((event, month))
         self.shade(month)
 
@@ -132,7 +139,6 @@ def change_month(roster, month, year, selector):
 
 
     selector.shade(month)
-    print("selector?")
 
 
 
@@ -173,12 +179,14 @@ if __name__ == "__main__":
         [sg.Text('', size=[1,1])],
         [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
-        [sg.Button('Exit')],
-        [sg.Listbox([],key='-SWAPLIST-')]
+        [sg.Listbox([],key='-SWAPLIST-')],
+        [sg.Button('Exit')]
     ]
 
     window = sg.Window(date, layout)
+    window['-SWAPLIST-'].old_shifts = []
     window.finalize()
+    buttonc0l = window['-SWAP-'].ButtonColor
     current_month = datetime.now().month
     current_year = datetime.now().year
     selector = select_date()
@@ -190,10 +198,7 @@ if __name__ == "__main__":
         print(event, values)
         if event in (None, 'Exit'):
             break
-        if event == 'Show':
-            window['TEST'].update(button_color=('Blue', 'Blue'))
-            # Update the "output" text element to be the value of "input" element
-            # window['-OUTPUT-'].update(values['-IN-'])
+
         if event == '-NEXT-':
             current_month,current_year = ((current_month +1,current_year) if current_month <12 else (1,current_year+1))
             change_month(my_roster, current_month, current_year, selector)
@@ -208,17 +213,41 @@ if __name__ == "__main__":
             selector.date(event)
 
         if event == "-SWAP-":
-            print(window['-SWAPLIST-'].Values)
             swap_to_line = values['-INLINE-']
             swap_with = values['-INSWAP-']
-            swap_dates = selector.dates
-            dates = str(swap_dates)
-            formatted_entry = swap_with + swap_to_line.rjust(20) + dates.rjust(50)
-            if len(window['-SWAPLIST-'].Values) != 0:
-                print([formatted_entry].extend(window['-SWAPLIST-'].Values))
-                window['-SWAPLIST-'].update([formatted_entry].extend(window['-SWAPLIST-'].Values))
-            else:
-                window['-SWAPLIST-'].update([formatted_entry])
+            swap_dates = [selector.get_date(x[0]) for x in selector.dates]
+
+            old_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
+            old  = old_shifts.copy()
+            for i in old:
+                del i['date']
+            #use JSON file to keep a record of all swaps
+            with open('swaps.json') as f:
+                existing_data = json.load(f)
+            jsonData = {'swap_with': swap_with, 'swap_to': swap_to_line, 'swap_dates' : [
+                i.strftime('%d/%m/%Y') for i in swap_dates], 'old_shifts': (old)}
+            existing_data.update(jsonData)
+            with open('swaps.json', 'w') as f:
+                f.write(json.dumps(existing_data))
+            formatted_entry = []
+            '''
+            for i in csvReader:
+                print(i)
+                display_swap_dates = i[2]
+                entry = i[0] + i[1].rjust(20) + display_swap_dates.rjust(50)
+                formatted_entry.append(entry)
+            my_roster.swap_days(swap_with, swap_dates, int(swap_to_line))
+
+'''
+
+            window['-SWAPLIST-'].update([formatted_entry])
+
+            # TODO: ADD REMOVE SWAP FUNCTION
+
+            # TODO: ADD UPDATE GOOGLE CAL FUNCTION
+
+            # TODO: ADD SOME EARLY HIGHLIGHTING OR WARNING FEATURE
+
 
 
 

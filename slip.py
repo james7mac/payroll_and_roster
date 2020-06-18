@@ -416,7 +416,10 @@ class live_roster:
         day_index = self.since_epoch(date) % 28
         days_since_epoch = self.since_epoch(date)
         self.generated_roster[days_since_epoch] = self.master_roster.compiled_roster[day_index].shifts[line-1]
+        self.generated_roster[days_since_epoch]['date'] = date
         self.swaps.append([person, date, line])
+
+
 
     def swap_days(self, person, dates, line):
         #dates is a tuple first date and last date
@@ -427,6 +430,8 @@ class live_roster:
             self.swap_day(person, day, line)
 
     def since_epoch(self, date):
+        if type(date) == datetime:
+            date = date.date()
         return (date - self.master_roster.epoch.date()).days
 
 

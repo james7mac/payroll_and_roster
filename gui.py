@@ -16,6 +16,8 @@ elif os.environ['COMPUTERNAME'] == 'JAMESPC':
     slip_inbox = r'C:\Users\james\Downloads'
 else:
     Exception()
+
+
 month_names = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 
 def enc_btn(day):
@@ -40,7 +42,6 @@ def Txt(*args, **kwargs):
 def days_in_month(roster, month, year):
     days_in = []
     for d in roster.generated_roster:
-        print(d)
         if d['date'].month == month:
                 #and d['date'].year == datetime.now().year:
             days_in.append(d)
@@ -95,6 +96,30 @@ class select_date:
                 window[selected[0]].update(button_color=('white', 'black'))
 
 
+class Swaps:
+    def __init__(self):
+        self.swaps = []
+
+    def add(self, swap_with, swap_to_line, swap_dates, old_shifts):
+        self.swaps.append({'swap_with': swap_with, 'to_line': swap_to_line, 'dates': swap_dates, 'old_shifts': old_shifts})
+        my_roster.swap_days(swap_with, swap_dates, int(swap_to_line))
+
+    def formatted_swaps(self):
+        formatted = []
+        for k,i in enumerate(self.swaps):
+            dates = ' '.join([x.strftime('%d/%m/%y') for x in i['dates']])
+            entry = str(k+1).ljust(4) + i['swap_with'] + i['to_line'].rjust(18) + dates.rjust(40)
+            formatted.append(entry)
+        return formatted
+
+    def remove(self, list_position):
+        itm = self.swaps[list_position-1]
+        for x, day in enumerate(itm['dates']):
+            for k, i in enumerate(my_roster.generated_roster):
+                if i['date'] == day:
+                    my_roster.generated_roster[k] = itm['old_shifts'][x]
+
+        del self.swaps[list_position-1]
 
 
 
@@ -158,7 +183,6 @@ if __name__ == "__main__":
         my_roster = slip.live_roster(master_roster)
 
 
-
     date = "Today: " + datetime.now().strftime('%d/%m/%y')
     f = 'Helvetica'
     ff = (f, 14)
@@ -180,6 +204,7 @@ if __name__ == "__main__":
         [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
         [sg.Listbox([],key='-SWAPLIST-')],
+        [Txt('Delete Swap:'), In('', key='-DELSWAP-'), sg.Button('delete', key='-DELSWAPBTN-')],
         [sg.Button('Exit')]
     ]
 
@@ -190,8 +215,15 @@ if __name__ == "__main__":
     current_month = datetime.now().month
     current_year = datetime.now().year
     selector = select_date()
+
     change_month(my_roster, current_month, datetime.now().year, selector)
 
+    if os.path.isfile('swaps.pickle'):
+        with open(working_dir + '\\' + 'swaps.pickle', 'rb') as file:
+            swaps = pickle.load(file)
+            window['-SWAPLIST-'].update(swaps.formatted_swaps())
+    else:
+        swaps = Swaps()
 
     while True:  # Event Loop
         event, values = window.read()
@@ -216,31 +248,13 @@ if __name__ == "__main__":
             swap_to_line = values['-INLINE-']
             swap_with = values['-INSWAP-']
             swap_dates = [selector.get_date(x[0]) for x in selector.dates]
-
             old_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
-            old  = old_shifts.copy()
-            for i in old:
-                del i['date']
-            #use JSON file to keep a record of all swaps
-            with open('swaps.json') as f:
-                existing_data = json.load(f)
-            jsonData = {'swap_with': swap_with, 'swap_to': swap_to_line, 'swap_dates' : [
-                i.strftime('%d/%m/%Y') for i in swap_dates], 'old_shifts': (old)}
-            existing_data.update(jsonData)
-            with open('swaps.json', 'w') as f:
-                f.write(json.dumps(existing_data))
-            formatted_entry = []
-            '''
-            for i in csvReader:
-                print(i)
-                display_swap_dates = i[2]
-                entry = i[0] + i[1].rjust(20) + display_swap_dates.rjust(50)
-                formatted_entry.append(entry)
-            my_roster.swap_days(swap_with, swap_dates, int(swap_to_line))
+            swaps.add(swap_with, swap_to_line, swap_dates, old_shifts)
+            window['-SWAPLIST-'].update(swaps.formatted_swaps())
 
-'''
-
-            window['-SWAPLIST-'].update([formatted_entry])
+        if event == "-DELSWAPBTN-":
+            swaps.remove(int(values['-DELSWAP-']))
+            window['-SWAPLIST-'].update(swaps.formatted_swaps())
 
             # TODO: ADD REMOVE SWAP FUNCTION
 
@@ -260,6 +274,8 @@ if __name__ == "__main__":
         pickle.dump(master_roster,file)
     with open(working_dir+'\\'+'my_roster.pickle', 'wb')  as file:
         pickle.dump(my_roster,file)
+    with open(working_dir + '\\' + 'swaps.pickle', 'wb') as file:
+        pickle.dump(swaps, file)
 
 
 

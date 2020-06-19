@@ -423,10 +423,7 @@ class live_roster:
 
     def swap_days(self, person, dates, line):
         #dates is a tuple first date and last date
-        num_of_days = (dates[1]-dates[0]).days
-        base = dates[0]
-        date_list = [base + timedelta(days=x) for x in range(num_of_days)]
-        for day in date_list:
+        for day in dates:
             self.swap_day(person, day, line)
 
     def since_epoch(self, date):

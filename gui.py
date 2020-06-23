@@ -5,6 +5,8 @@ from calendar import monthrange
 from collections import deque
 from datetime import timedelta
 
+
+
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
     slip_inbox =  ''
@@ -66,10 +68,11 @@ class select_date:
         return event[4:-2]
 
     def get_date(self, event):
-        return datetime(current_year, current_month, int(self.get_tile_value(event)))
+        btn_date = int(window[event].ButtonText.split('\n')[0])
+        return datetime(current_year, current_month, btn_date)
 
     def date(self, event):
-        print(window[event].ButtonColor[1])
+
         if window[event].ButtonColor[1] != buttonc0l[1] and window[event].ButtonColor[1] != 'black':
             return
         month = month_names.index(window['-MONTH-'].DisplayText.upper()) + 1
@@ -77,7 +80,7 @@ class select_date:
             self.dates.remove((event, month))
             self.shade(month)
             return
-        date = self.get_date(event)
+
         self.dates.append((event, month))
         self.shade(month)
 
@@ -131,6 +134,10 @@ def change_month(roster, month, year, selector):
     next_month = days_in_month(roster,month + 1,year) if month < 12 else days_in_month(roster,1, year+1)
     initial_weekday = roster_month[0]['date'].weekday() + 1
     window['-MONTH-'].update(roster_month[0]['date'].strftime('%b'))
+    shade_swaps = []
+    for i in swaps.swaps:
+        [shade_swaps.append(x.date())for x in i['dates']]
+    print(shade_swaps)
     for i,d in enumerate(roster_month):
         if d['date'].date() == roster.master_roster.epoch.date():
             colors = ('white', 'red')
@@ -138,6 +145,9 @@ def change_month(roster, month, year, selector):
             colors=sg.theme_button_color()
         button_text = "{0}\n\n{1}".format(d['date'].day,d['start'])
         window[enc_btn(i+initial_weekday)].update(button_text, button_color=(colors))
+
+        if d['date'].date() in shade_swaps:
+            window[enc_btn(i + initial_weekday)].update(button_text, button_color=('yellow', 'navy'))
 
 
     prev_month = [i for i in prev_month if i['date'].year == roster_month[0]['date'].year]
@@ -170,6 +180,11 @@ def change_month(roster, month, year, selector):
 
 
 if __name__ == "__main__":
+    if os.path.isfile('swaps.pickle'):
+        with open(working_dir + '\\' + 'swaps.pickle', 'rb') as file:
+            swaps = pickle.load(file)
+    else:
+        swaps = Swaps()
     if os.path.exists(working_dir+'\\'+'master_roster.pickle'):
         with open(working_dir+'\\'+'master_roster.pickle', "rb") as file:
             master_roster = pickle.load(file)
@@ -215,15 +230,10 @@ if __name__ == "__main__":
     current_month = datetime.now().month
     current_year = datetime.now().year
     selector = select_date()
-
+    window['-SWAPLIST-'].update(swaps.formatted_swaps())
     change_month(my_roster, current_month, datetime.now().year, selector)
 
-    if os.path.isfile('swaps.pickle'):
-        with open(working_dir + '\\' + 'swaps.pickle', 'rb') as file:
-            swaps = pickle.load(file)
-            window['-SWAPLIST-'].update(swaps.formatted_swaps())
-    else:
-        swaps = Swaps()
+
 
     while True:  # Event Loop
         event, values = window.read()
@@ -247,16 +257,18 @@ if __name__ == "__main__":
         if event == "-SWAP-":
             swap_to_line = values['-INLINE-']
             swap_with = values['-INSWAP-']
+
             swap_dates = [selector.get_date(x[0]) for x in selector.dates]
             old_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
             swaps.add(swap_with, swap_to_line, swap_dates, old_shifts)
+            selector.dates = []
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
+
 
         if event == "-DELSWAPBTN-":
             swaps.remove(int(values['-DELSWAP-']))
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
 
-            # TODO: ADD REMOVE SWAP FUNCTION
 
             # TODO: ADD UPDATE GOOGLE CAL FUNCTION
 

@@ -40,6 +40,8 @@ def In(*args, **kwargs):
     return (sg.InputText(*args, font=(f, 12), **kwargs))
 def Txt(*args, **kwargs):
     return (sg.Text(*args, font=(f, 12), **kwargs))
+def Txt_dt(*args, **kwargs):
+    return (sg.Text('', font=ff, **kwargs))
 
 def days_in_month(roster, month, year):
     days_in = []
@@ -91,6 +93,7 @@ class select_date:
             self.year[month_name] = []
             for t in month:
                 self.year[month_name].append((window[enc_btn(t)].ButtonColor))
+
         for tile in month:
             window[enc_btn(tile)].update(button_color=('white', self.year[month_name][tile][1]))
 
@@ -130,24 +133,25 @@ class Swaps:
 def change_month(roster, month, year, selector):
 
     roster_month = days_in_month(roster, month, year)
+    roster_month = [i for i in roster_month if i['date'].year == year]
     prev_month = days_in_month(roster,month -1, year if month > 1 else days_in_month(roster,12,year-1))
     next_month = days_in_month(roster,month + 1,year) if month < 12 else days_in_month(roster,1, year+1)
     initial_weekday = roster_month[0]['date'].weekday() + 1
+    window['-YEAR-'].update(str(current_year))
     window['-MONTH-'].update(roster_month[0]['date'].strftime('%b'))
     shade_swaps = []
     for i in swaps.swaps:
         [shade_swaps.append(x.date())for x in i['dates']]
-    print(shade_swaps)
+
+
     for i,d in enumerate(roster_month):
-        if d['date'].date() == roster.master_roster.epoch.date():
-            colors = ('white', 'red')
-        else:
-            colors=sg.theme_button_color()
+
+        colors=sg.theme_button_color()
         button_text = "{0}\n\n{1}".format(d['date'].day,d['start'])
         window[enc_btn(i+initial_weekday)].update(button_text, button_color=(colors))
 
         if d['date'].date() in shade_swaps:
-            window[enc_btn(i + initial_weekday)].update(button_text, button_color=('yellow', 'navy'))
+            window[enc_btn(i + initial_weekday)].update(button_color=('yellow', 'navy'))
 
 
     prev_month = [i for i in prev_month if i['date'].year == roster_month[0]['date'].year]
@@ -156,7 +160,6 @@ def change_month(roster, month, year, selector):
     previous_month_num = month-1 if month != 1 else 12
     num_days_prev = monthrange(roster_month[0]['date'].year, previous_month_num)[1]
     remaining_days = num_days_prev - initial_weekday
-
     for i in range(initial_weekday):
         shift = (prev_month[i] if len(prev_month) > i else  {'date':fake_date,'start':'NA'})
         button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
@@ -166,14 +169,15 @@ def change_month(roster, month, year, selector):
     remaining_spots = 42-initial_weekday-len(roster_month)
     next_month = next_month[:remaining_spots]
     calender_index = 0
+
     for i in range(initial_weekday+len(roster_month),42):
+
         shift = next_month[calender_index]
         button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
         window[enc_btn(i)].update(button_text,button_color=('white', 'grey'))
         calender_index +=1
 
 
-    selector.shade(month)
 
 
 
@@ -206,7 +210,7 @@ if __name__ == "__main__":
     col1 = [sg.Listbox(values=month_names, size=(20,20), key='-SWAPHIST-')]
 
     layout = [
-        [sg.Button('Previous', key="-PREV-"), sg.Text('', justification='center', font=ff, key='-MONTH-'), sg.Button('Next', key='-NEXT-')],
+        [sg.Button('Previous', key="-PREV-"), Txt_dt(key='-MONTH-', justification='r'), Txt_dt(key='-YEAR-', justification='l'), sg.Button('Next', key='-NEXT-')],
         [Txt_day('Sun'), Txt_day('Mon'), Txt_day('Tue'), Txt_day('Wed'), Txt_day('Thu'), Txt_day('Fri'),
          Txt_day(' Sat')],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
@@ -242,12 +246,13 @@ if __name__ == "__main__":
             break
 
         if event == '-NEXT-':
-            current_month,current_year = ((current_month +1,current_year) if current_month <12 else (1,current_year+1))
-            change_month(my_roster, current_month, current_year, selector)
+            if master_roster.epoch  + timedelta(days=330) > datetime(current_year, current_month, 1):
+                current_month,current_year = ((current_month +1,current_year) if current_month <12 else (1,current_year+1))
+                change_month(my_roster, current_month, current_year, selector)
 
         if event == '-PREV-':
             year = datetime.now().year
-            if master_roster.epoch.month < datetime(year, current_month, 1).month:
+            if master_roster.epoch < datetime(current_year, current_month, 1):
                 current_month, current_year = ((current_month - 1, current_year) if current_month > 2 else (12, current_year -1))
                 change_month(my_roster, current_month, current_year, selector)
 
@@ -263,7 +268,7 @@ if __name__ == "__main__":
             swaps.add(swap_with, swap_to_line, swap_dates, old_shifts)
             selector.dates = []
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
-
+            change_month(my_roster, current_month, datetime.now().year, selector)
 
         if event == "-DELSWAPBTN-":
             swaps.remove(int(values['-DELSWAP-']))

@@ -27,10 +27,6 @@ else:
 
 
 
-
-
-
-
 class Payslips:
     def __init__(self, password):
         self.url = r'https://secure.adppayroll.com.au/'
@@ -254,8 +250,8 @@ class Roster:
         logging.debug('CAL UPDATE: ' + str(job['date']))
 
     def update_calander(self, jobs, service):
+        print(jobs)
         for job in jobs:
-            print(job)
             if job['required']:
                 self.create_calander_event(job, service)
             else:

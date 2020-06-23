@@ -4,7 +4,7 @@ from datetime import datetime
 from calendar import monthrange
 from collections import deque
 from datetime import timedelta
-
+from googlecal import update_calander, check_work_event, delete_event, get_creds
 
 
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
@@ -124,11 +124,10 @@ class Swaps:
             for k, i in enumerate(my_roster.generated_roster):
                 if i['date'] == day:
                     my_roster.generated_roster[k] = itm['old_shifts'][x]
-
+                    service = get_creds()
+                    master_roster.update_calander([my_roster.generated_roster[k]], service)
         del self.swaps[list_position-1]
-
-
-
+        change_month(my_roster, current_month, current_year, selector)
 
 def change_month(roster, month, year, selector):
 
@@ -141,6 +140,7 @@ def change_month(roster, month, year, selector):
     window['-MONTH-'].update(roster_month[0]['date'].strftime('%b'))
     shade_swaps = []
     for i in swaps.swaps:
+        print(shade_swaps)
         [shade_swaps.append(x.date())for x in i['dates']]
 
 
@@ -176,11 +176,6 @@ def change_month(roster, month, year, selector):
         button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
         window[enc_btn(i)].update(button_text,button_color=('white', 'grey'))
         calender_index +=1
-
-
-
-
-
 
 
 if __name__ == "__main__":
@@ -269,17 +264,15 @@ if __name__ == "__main__":
             selector.dates = []
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
             change_month(my_roster, current_month, datetime.now().year, selector)
+            cal_popup = sg.popup_yes_no("would you like to update google calendar?")
+            if cal_popup == 'Yes':
+                service = get_creds()
+                new_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
+                master_roster.update_calander(new_shifts, service)
 
         if event == "-DELSWAPBTN-":
             swaps.remove(int(values['-DELSWAP-']))
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
-
-
-            # TODO: ADD UPDATE GOOGLE CAL FUNCTION
-
-            # TODO: ADD SOME EARLY HIGHLIGHTING OR WARNING FEATURE
-
-
 
 
         window.refresh()

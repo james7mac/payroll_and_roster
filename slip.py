@@ -297,6 +297,8 @@ class Roster:
         end_string =  str(job['finish']).rjust(4, '0')
         start = datetime.combine(job['date'], TIME(int(start_string[:2]), int(start_string[2:])))
         end = datetime.combine(job['date'], TIME(int(end_string[:2]), int(end_string[3:])))
+        if end.hour in [0,1]:
+            end = end + timedelta(days=1)
         formatted['start'] = {'dateTime': start.isoformat(), 'timeZone':'Australia/Melbourne'}
         formatted['end'] = {'dateTime': end.isoformat(), 'timeZone':'Australia/Melbourne'}
         formatted['description'] = formatted ['description'] + '\n\n' + ' '.join(job['id'])
@@ -433,16 +435,49 @@ class live_roster:
         target_shifts = [s for s in self.generated_roster if s['date'] in worked_dates]
         report = {}
         report['hrsworked'] = self.hours_worked(target_shifts)
+        report['hrsearned'] = self.hours_earned(target_shifts)
+        print(report)
         return target_shifts
 
     def hours_worked(self, target_shifts):
+        wrked = timedelta()
         for i in target_shifts:
             if i['finish']:
-                format = '%-H%M'
-                start = datetime.strptime(str(i['start']), format)
-                finish = datetime.strptime(str(i['finish']), format)
-                t = start - finish
-                print(t)
+                start, finish = self.dt_hours(i['start'], i['finish'])
+                t = finish - start
+                wrked += t
+        return self.deltaToHrs(wrked)
+
+    def dt_hours(self, start, finish):
+        format = '%H%M'
+        s = datetime.strptime(str(start).zfill(4), format)
+        f = datetime.strptime(str(finish).zfill(4), format)
+        return s, f
+
+    def hours_earned(self, target_shifts):
+        hrs_earned = timedelta()
+        for i in target_shifts:
+            if i['finish']:
+                if i['date'].weekday() == 5:
+                    #calculate days pay
+                    start, finish = self.dt_hours(i['start'], i['finish'])
+                    dp = finish - start
+                    dp *= 1.5
+                    hrs_earned += dp
+        return self.deltaToHrs(hrs_earned)
+
+    @staticmethod
+    def deltaToHrs(delta):
+        hrs = delta.days * 24
+        hrs += delta.seconds / 60 / 60
+        return hrs
+
+
+
+
+
+
+
 
 
 

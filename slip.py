@@ -1,7 +1,7 @@
 #! python3
 # slip.py - retrieves pdf from adp and then scrapes data from that pdf
 
-import time, os, tabula, csv, openpyxl, glob, pickle, logging, shutil
+import time, os, tabula, csv, openpyxl, glob, pickle, logging, shutil, holidays
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
@@ -12,7 +12,9 @@ from googlecal import update_calander, check_work_event, delete_event, get_creds
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
 logging.debug('Start of program')
 
-
+public_hols = holidays.CountryHoliday('Australia', prov="VIC")
+for d,n in sorted(holidays.CountryHoliday('Australia', prov="VIC", years=2020).items()):
+    print('{}   {}'.format(d,n))
 if os.environ['COMPUTERNAME'] == 'LAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
     slip_inbox =  ''
@@ -444,8 +446,14 @@ class live_roster:
         for i in target_shifts:
             if i['finish']:
                 start, finish = self.dt_hours(i['start'], i['finish'])
+                if finish.hour in [0,1]:
+                    finish += timedelta(days=1)
                 t = finish - start
                 wrked += t
+                continue
+            if i['date'].date() in public_hols:
+                wrked += timedelta(hours=8)
+
         return self.deltaToHrs(wrked)
 
     def dt_hours(self, start, finish):
@@ -456,14 +464,25 @@ class live_roster:
 
     def hours_earned(self, target_shifts):
         hrs_earned = timedelta()
+        x = 0
         for i in target_shifts:
             if i['finish']:
+                # calculate days pay
+                start, finish = self.dt_hours(i['start'], i['finish'])
+                dp = finish - start
                 if i['date'].weekday() == 5:
-                    #calculate days pay
-                    start, finish = self.dt_hours(i['start'], i['finish'])
-                    dp = finish - start
                     dp *= 1.5
-                    hrs_earned += dp
+                if i['date'].weekday() == 6:
+                    dp *= 2
+                if i['date'].date() in public_hols:
+                    dp *= 2.5
+                hrs_earned += dp
+
+            if i['up'] == ['EDO']:
+                hrs_earned += timedelta(hours=8)
+            x+=1
+            print(hrs_earned)
+
         return self.deltaToHrs(hrs_earned)
 
     @staticmethod
@@ -518,7 +537,7 @@ def main():
     dat= datetime.now().date()
 
     dat2 = dat+timedelta(days=3)
-    [print(x) for x in live.pay_report(pp_start)]
+    [print(i ,x) for i,x in enumerate(live.pay_report(pp_start))]
 
 
 

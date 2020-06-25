@@ -406,6 +406,7 @@ class live_roster:
         self.name = "Macalister"
         self.generated_roster = self.master_roster.generate_roster(self.name,48)
         self.swaps = []
+        self.report_num = 0
 
     def swap_day(self, person, date, line):
         #accepts date object
@@ -426,6 +427,22 @@ class live_roster:
         if type(date) == datetime:
             date = date.date()
         return (date - self.master_roster.epoch.date()).days
+
+    def pay_report(self, period_beginning):
+        worked_dates = [period_beginning + timedelta(days=x) for x in range(14)]
+        target_shifts = [s for s in self.generated_roster if s['date'] in worked_dates]
+        report = {}
+        report['hrsworked'] = self.hours_worked(target_shifts)
+        return target_shifts
+
+    def hours_worked(self, target_shifts):
+        for i in target_shifts:
+            if i['finish']:
+                format = '%-H%M'
+                start = datetime.strptime(str(i['start']), format)
+                finish = datetime.strptime(str(i['finish']), format)
+                t = start - finish
+                print(t)
 
 
 
@@ -461,18 +478,12 @@ def main():
     #print(RosterDay.name_list)
     #print(RosterDay.epoch)
     #ros = roster.generate_roster("Macalister", weeks_ahead=6)
+    pp_start = datetime(2020,6,7)
     live = live_roster(roster)
     dat= datetime.now().date()
-    print(dat)
-    dat2 = dat+timedelta(days=3)
 
-    for d in live.generated_roster[live.since_epoch(dat):live.since_epoch(dat)+4]:
-        print(d)
-    #live.swap_day(1,dat,3)
-    print("#################")
-    live.swap_days('a',(dat,dat2), 83)
-    for d in live.generated_roster[live.since_epoch(dat):live.since_epoch(dat) + 4]:
-        print(d)
+    dat2 = dat+timedelta(days=3)
+    [print(x) for x in live.pay_report(pp_start)]
 
 
 
@@ -481,7 +492,7 @@ def main():
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
 
-#main()
+main()
 
 
 

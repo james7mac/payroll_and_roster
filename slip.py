@@ -86,7 +86,6 @@ class Payslip:
         self.compile_leave()
         self.get_hours_earned()
         self.get_hours_worked()
-        self.remove_garbage()
         self.extract_pay()
         self.rename_slip()
         self.remove_garbage()
@@ -106,8 +105,8 @@ class Payslip:
         fornight_start = self.standard_table[2][0]
         fortnight_end = self.standard_table[2][1]
         format = '%d/%m/%Y'
-        self.advice['begin'], self.advice['end'] = datetime.strptime(fornight_start, format), datetime.strptime(fortnight_end, format)
-        return self.advice['begin'], self.advice['end']
+        self.advice['ending'], self.advice['pay date'] = datetime.strptime(fornight_start, format), datetime.strptime(fortnight_end, format)
+        return self.advice['ending'], self.advice['pay date']
 
     def find_payment_table(self):
         #returns the range the pay advice table occupies
@@ -181,7 +180,7 @@ class Payslip:
 
     def rename_slip(self):
         name = '\\Payslip '
-        name = name + self.advice['end'].strftime("%d-%m-%Y") +'.pdf'
+        name = name + self.advice['ending'].strftime("%d-%m-%Y") +'.pdf'
         name = os.path.dirname(self.pdf_path) + name
         print(name)
         os.rename(self.pdf_path, name)
@@ -396,9 +395,11 @@ class RosterDay:
 
 
 def most_recent_file(location, extention):
+    print(location)
     #returns the most recent file with extention
     path = location + '\\*' + extention
     list_of_files = glob.glob(path)  # * means all if need specific format then *.csv
+    print(list_of_files)
     latest_file = max(list_of_files, key=os.path.getctime)
     return latest_file
 
@@ -432,14 +433,18 @@ class live_roster:
             date = date.date()
         return (date - self.master_roster.epoch.date()).days
 
-    def pay_report(self, period_beginning):
+    def pay_report(self, period_ending, slip):
+        period_beginning = period_ending - timedelta(days=13)
         worked_dates = [period_beginning + timedelta(days=x) for x in range(14)]
         target_shifts = [s for s in self.generated_roster if s['date'] in worked_dates]
         report = {}
+        report['period ending'] = target_shifts[-1]['date']
         report['hrsworked'] = self.hours_worked(target_shifts)
         report['hrsearned'] = self.hours_earned(target_shifts)
-        print(report)
-        return target_shifts
+        report['slipeworked'] = slip.advice['hours_worked']
+        report['slipearned'] = slip.advice['hours_earned']
+        [print(i) for i in target_shifts]
+        return report
 
     def hours_worked(self, target_shifts):
         wrked = timedelta()
@@ -453,7 +458,6 @@ class live_roster:
                 continue
             if i['date'].date() in public_hols:
                 wrked += timedelta(hours=8)
-
         return self.deltaToHrs(wrked)
 
     def dt_hours(self, start, finish):
@@ -484,6 +488,8 @@ class live_roster:
             print(hrs_earned)
 
         return self.deltaToHrs(hrs_earned)
+
+
 
     @staticmethod
     def deltaToHrs(delta):
@@ -524,20 +530,21 @@ def main():
     #print(len(roster.compiled_roster))
     #service = get_creds()
     #print(roster.compiled_roster[0].shifts)
-    #payslips = Payslips('t8C3&Lq9uTy0')
+    payslips = Payslips('')
     #payslips.get_payslip()
-    #slip = most_recent_file(working_dir + '\\payslips', 'pdf')
-    #print(slip)
-    #payslips.process_payslip(slip)
+    slip = most_recent_file(working_dir + '\\payslips', 'pdf')
+    payslips.process_payslip(slip)
+    [print(i,k) for i,k in payslips.slips[0].advice.items()]
     #print(RosterDay.name_list)
     #print(RosterDay.epoch)
     #ros = roster.generate_roster("Macalister", weeks_ahead=6)
-    pp_start = datetime(2020,6,7)
+    pp_end = datetime(2020,6,6)
     live = live_roster(roster)
     dat= datetime.now().date()
 
     dat2 = dat+timedelta(days=3)
-    [print(i ,x) for i,x in enumerate(live.pay_report(pp_start))]
+    [print(i ,x) for i,x in live.pay_report(pp_end, payslips.slips[0]).items()]
+
 
 
 
@@ -552,8 +559,6 @@ main()
 
 # pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-# TODO: add shift swap functionality - swap class?
-# TODO: add interface
 # TODO: fix XL.pickle and roster.pickle
 # TODO: add py.test tests
 # TODO: fix calander api max call errors

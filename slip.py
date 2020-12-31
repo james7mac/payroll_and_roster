@@ -314,14 +314,14 @@ class RosterDay:
     epoch = None
     def __init__(self, roster, day):
         self.raw_roster = roster
-        self.date = self.raw_roster.worksheets[0]['F1'].value + timedelta(days=day)
+        self.date = self.raw_roster.worksheets[0]['G1'].value + timedelta(days=day)
         self.day_sheet = roster.worksheets[day]
         #all dates must be calculated relative to the dat on sheet 0:
         self.shifts = []
         if not RosterDay.name_list:
             RosterDay.name_list = self.name_positions()
         if not RosterDay.epoch:
-            RosterDay.epoch = self.day_sheet['F1'].value
+            RosterDay.epoch = input('what is epoch date?')
 
     def extract_shifts(self):
         #find the last shift on the normal roster
@@ -341,13 +341,13 @@ class RosterDay:
         #so we skip 4 rows each iteration
         for i in range(5,last_cell,4):
             job = {}
-            job['id'] = self.get_cell_data(self.day_sheet, i, 'B') if self.get_cell_data(self.day_sheet, i, 'B') else None
-            job['down'] = self.get_cell_data(self.day_sheet, i, 'C') if self.get_cell_data(self.day_sheet, i, 'C')  else None
-            job['up'] = self.get_cell_data(self.day_sheet, i, 'E') if self.get_cell_data(self.day_sheet, i, 'E') else None
-            job['down dest'] = self.get_cell_data(self.day_sheet, i, 'D') if self.get_cell_data(self.day_sheet, i, 'D') else None
-            job['up dest'] = self.get_cell_data(self.day_sheet, i, 'F') if self.get_cell_data(self.day_sheet, i, 'F') else None
-            job['start'] = int(self.get_cell_data(self.day_sheet, i, 'G')[0]) if self.get_cell_data(self.day_sheet, i, 'G') else None
-            job['finish'] = int(self.get_cell_data(self.day_sheet, i, 'H')[0]) if self.get_cell_data(self.day_sheet, i, 'H') else None
+            job['id'] = self.get_cell_data(self.day_sheet, i, 'E') if self.get_cell_data(self.day_sheet, i, 'E') else None
+            job['down'] = self.get_cell_data(self.day_sheet, i, 'F') if self.get_cell_data(self.day_sheet, i, 'F')  else None
+            job['up'] = self.get_cell_data(self.day_sheet, i, 'H') if self.get_cell_data(self.day_sheet, i, 'H') else None
+            job['down dest'] = self.get_cell_data(self.day_sheet, i, 'G') if self.get_cell_data(self.day_sheet, i, 'G') else None
+            job['up dest'] = self.get_cell_data(self.day_sheet, i, 'I') if self.get_cell_data(self.day_sheet, i, 'I') else None
+            job['start'] = int(self.get_cell_data(self.day_sheet, i, 'C')[0]) if self.get_cell_data(self.day_sheet, i, 'C') else None
+            job['finish'] = int(self.get_cell_data(self.day_sheet, i, 'D')[0]) if self.get_cell_data(self.day_sheet, i, 'D') else None
             job['isrest'] = self.get_cell_data(self.day_sheet, i, 'J')[0] if self.get_cell_data(self.day_sheet, i, 'J') else False
             job['required'] = False if job['up'] and job['up'][0] in ['OFF', 'EDO'] else True
             job['debug'] = [self.day_sheet.title, i]
@@ -365,7 +365,7 @@ class RosterDay:
                 int(cell.value)
                 last_cell = cell
             except:
-                pass
+                break
         logging.debug('last cell is' + str(last_cell))
         return  last_cell.row + 1
 
@@ -374,7 +374,7 @@ class RosterDay:
         names = []
         last_cell = self.get_last_cell()
         for i in range(5,last_cell,4):
-            names.append(self.get_cell_data(self.day_sheet, i, 'I')[0])
+            names.append(str(self.get_cell_data(self.day_sheet, i, 'B')))
         return names
 
 
@@ -443,12 +443,15 @@ class live_roster:
         report['hrsearned'] = self.hours_earned(target_shifts)
         report['slipeworked'] = slip.advice['hours_worked']
         report['slipearned'] = slip.advice['hours_earned']
-        [print(i) for i in target_shifts]
         return report
 
     def hours_worked(self, target_shifts):
+        print("NUM OF SHIFTS:")
+        print(target_shifts)
+        [print(i['finish']) for i in target_shifts]
         wrked = timedelta()
         for i in target_shifts:
+            print(wrked)
             if i['finish']:
                 start, finish = self.dt_hours(i['start'], i['finish'])
                 if finish.hour in [0,1]:
@@ -485,7 +488,7 @@ class live_roster:
             if i['up'] == ['EDO']:
                 hrs_earned += timedelta(hours=8)
             x+=1
-            print(hrs_earned)
+            #print(hrs_earned)
 
         return self.deltaToHrs(hrs_earned)
 
@@ -525,25 +528,10 @@ def unpickle():
 
 
 def main():
+    print(working_dir)
     roster = unpickle()
     roster.roster_build()
-    #print(len(roster.compiled_roster))
-    #service = get_creds()
-    #print(roster.compiled_roster[0].shifts)
-    payslips = Payslips('')
-    #payslips.get_payslip()
-    slip = most_recent_file(working_dir + '\\payslips', 'pdf')
-    payslips.process_payslip(slip)
-    [print(i,k) for i,k in payslips.slips[0].advice.items()]
-    #print(RosterDay.name_list)
-    #print(RosterDay.epoch)
-    #ros = roster.generate_roster("Macalister", weeks_ahead=6)
-    pp_end = datetime(2020,6,6)
-    live = live_roster(roster)
-    dat= datetime.now().date()
 
-    dat2 = dat+timedelta(days=3)
-    [print(i ,x) for i,x in live.pay_report(pp_end, payslips.slips[0]).items()]
 
 
 

@@ -15,7 +15,7 @@ logging.debug('Start of program')
 public_hols = holidays.CountryHoliday('Australia', prov="VIC")
 for d,n in sorted(holidays.CountryHoliday('Australia', prov="VIC", years=2020).items()):
     print('{}   {}'.format(d,n))
-if os.environ['COMPUTERNAME'] == 'LAPTOP':
+if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
     slip_inbox =  ''
     gecko_driver = r"C:\Users\james\Google Drive\System Files\geckodriver.exe"
@@ -232,6 +232,7 @@ class Roster:
     def generate_roster(self, name, weeks_ahead):
         position = RosterDay.name_list.index(name)
         since_epoch = datetime.now() - RosterDay.epoch
+        #times by 7 for weeks in days
         forcast_range = (7*weeks_ahead)
         indiv_roster = []
         for day in range(forcast_range+since_epoch.days):

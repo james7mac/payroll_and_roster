@@ -9,6 +9,8 @@ from datetime import timedelta
 from datetime import time as TIME
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 
+#test
+
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
 logging.debug('Start of program')
 

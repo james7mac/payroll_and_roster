@@ -2,6 +2,7 @@
 # slip.py - retrieves pdf from adp and then scrapes data from that pdf
 
 import time, os, tabula, csv, openpyxl, glob, pickle, logging, shutil, holidays
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
@@ -9,7 +10,6 @@ from datetime import timedelta
 from datetime import time as TIME
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 
-#test
 
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
 logging.debug('Start of program')
@@ -193,7 +193,29 @@ class Payslip:
 
 
 
+class pRoster:
+    def __init__(self, roster_location, compiled_roster=None):
+        self.roster_location = roster_location
+        if not compiled_roster:
+            roster_pdf = open(self.roster_location, 'rb')
+            self.compiled_roster = self.build_roster_dummy(roster_pdf)
 
+    def build_roster(self, roster_pdf):
+        tabula_roster = tabula.read_pdf(roster_pdf, pages='all')
+
+    def build_roster_dummy(self, roster_pdf):
+        if os.path.exists(working_dir+'\\TEMPFILE.csv'):
+            with open(working_dir + "\\TEMPFILE.csv") as file:
+               self.tabula_roster = csv.reader(file)
+
+
+        else:
+            tabula.convert_into(roster_pdf, 'TEMPFILE.csv', output_format="csv", pages='all')
+            with open(working_dir + "\\TEMPFILE.csv") as file:
+                self.tabula_roster = csv.reader(file)
+
+
+    ## PANDAS DATA FRAME ??
 class Roster:
     def __init__(self, roster_location):
         self.roster_location = roster_location
@@ -531,20 +553,19 @@ def unpickle():
 
 
 def main():
-    print(working_dir)
-    roster = unpickle()
-    roster.roster_build()
+    r = pRoster(working_dir+'\\MasterRoster.pdf')
 
 
 
 
 
-
-
+    '''
     with open(working_dir+'\\'+'roster.pickle', 'wb') as file:
             pickle.dump(roster, file)
+    '''
 
-main()
+if __name__ == "__main__":
+    main()
 
 
 

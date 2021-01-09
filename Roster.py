@@ -5,7 +5,7 @@
 # The roster must also be cleaned of all blue "available" this was done using 'Libre Draw'
 pdfFullPages = 9
 pdfLastCoords = [148.6, 107.0 ,1166.4, 251.5]
-epoch = '30/06/21' #date in 30/6/99 format
+epoch = '17/01/21' #date in 30/6/99 format
 import time, os, tabula,logging, shutil, holidays
 import pandas as pd
 from datetime import datetime, timedelta

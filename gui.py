@@ -1,13 +1,13 @@
 import PySimpleGUIQt as sg
-import slip, os, pickle, json
+import Roster, os, calendar
 from datetime import datetime
 from calendar import monthrange
-from collections import deque
 from datetime import timedelta
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 
 
-if os.environ['COMPUTERNAME'] == 'LAPTOP':
+
+if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
     slip_inbox =  ''
     gecko_driver = r"C:\Users\james\Google Drive\System Files\geckodriver.exe"
@@ -18,9 +18,6 @@ elif os.environ['COMPUTERNAME'] == 'JAMESPC':
     slip_inbox = r'C:\Users\james\Downloads'
 else:
     Exception()
-
-
-month_names = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
 
 def enc_btn(day):
     return '--XD' + str(day) + '--'
@@ -129,30 +126,26 @@ class Swaps:
         del self.swaps[list_position-1]
         change_month(my_roster, current_month, current_year, selector)
 
-def change_month(roster, month, year, selector):
-
-    roster_month = days_in_month(roster, month, year)
-    roster_month = [i for i in roster_month if i['date'].year == year]
-    prev_month = days_in_month(roster,month -1, year if month > 1 else days_in_month(roster,12,year-1))
-    next_month = days_in_month(roster,month + 1,year) if month < 12 else days_in_month(roster,1, year+1)
-    initial_weekday = roster_month[0]['date'].weekday() + 1
-    window['-YEAR-'].update(str(current_year))
-    window['-MONTH-'].update(roster_month[0]['date'].strftime('%b'))
+def change_month(year,month, selector):
+    print(month)
+    window['-YEAR-'].update(str(year))
+    window['-MONTH-'].update(calendar.month_name[month])
     shade_swaps = []
+    '''
     for i in swaps.swaps:
         print(shade_swaps)
         [shade_swaps.append(x.date())for x in i['dates']]
-
-
-    for i,d in enumerate(roster_month):
+    '''
+    cal = calendar.Calendar(firstweekday=6)
+    for i, k in enumerate(cal.itermonthdates(year, month)):
 
         colors=sg.theme_button_color()
-        button_text = "{0}\n\n{1}".format(d['date'].day,d['start'])
-        window[enc_btn(i+initial_weekday)].update(button_text, button_color=(colors))
+        button_text = "{0}\n\n{1}".format(k.day,'A')
+        window[enc_btn(i)].update(button_text, button_color=(colors))
 
-        if d['date'].date() in shade_swaps:
-            window[enc_btn(i + initial_weekday)].update(button_color=('yellow', 'navy'))
-
+        #if d['date'].date() in shade_swaps:
+        #    window[enc_btn(i + initial_weekday)].update(button_color=('yellow', 'navy'))
+    '''
 
     prev_month = [i for i in prev_month if i['date'].year == roster_month[0]['date'].year]
 
@@ -177,24 +170,8 @@ def change_month(roster, month, year, selector):
         window[enc_btn(i)].update(button_text,button_color=('white', 'grey'))
         calender_index +=1
 
-
+    '''
 if __name__ == "__main__":
-    if os.path.isfile('swaps.pickle'):
-        with open(working_dir + '\\' + 'swaps.pickle', 'rb') as file:
-            swaps = pickle.load(file)
-    else:
-        swaps = Swaps()
-    if os.path.exists(working_dir+'\\'+'master_roster.pickle'):
-        with open(working_dir+'\\'+'master_roster.pickle', "rb") as file:
-            master_roster = pickle.load(file)
-    else:
-        master_roster = slip.Roster(working_dir)
-        master_roster.roster_build()
-    if  os.path.exists(working_dir+'\\'+'my_roster.pickle'):
-        with open(working_dir+'\\'+'my_roster.pickle','rb') as file:
-            my_roster = pickle.load(file)
-    else:
-        my_roster = slip.live_roster(master_roster)
 
 
     date = "Today: " + datetime.now().strftime('%d/%m/%y')
@@ -202,7 +179,7 @@ if __name__ == "__main__":
     ff = (f, 14)
     sg.theme('LightGrey')
 
-    col1 = [sg.Listbox(values=month_names, size=(20,20), key='-SWAPHIST-')]
+    col1 = [sg.Listbox(values=['ITCH', 'NI', 'SUN'], size=(20,20), key='-SWAPHIST-')]
 
     layout = [
         [sg.Button('Previous', key="-PREV-"), Txt_dt(key='-MONTH-', justification='r'), Txt_dt(key='-YEAR-', justification='l'), sg.Button('Next', key='-NEXT-')],
@@ -229,9 +206,11 @@ if __name__ == "__main__":
     current_month = datetime.now().month
     current_year = datetime.now().year
     selector = select_date()
-    window['-SWAPLIST-'].update(swaps.formatted_swaps())
-    change_month(my_roster, current_month, datetime.now().year, selector)
-
+    #window['-SWAPLIST-'].update(swaps.formatted_swaps())
+    change_month(datetime.now().year, datetime.now().month, selector)
+    cal = calendar.Calendar(firstweekday=6)
+    print(calendar.month(2021,1))
+    print([i for i in cal.itermonthdays(2021,1)])
 
 
     while True:  # Event Loop
@@ -239,7 +218,9 @@ if __name__ == "__main__":
         print(event, values)
         if event in (None, 'Exit'):
             break
-
+        window.refresh()
+    window.close()
+'''     
         if event == '-NEXT-':
             if master_roster.epoch  + timedelta(days=330) > datetime(current_year, current_month, 1):
                 current_month,current_year = ((current_month +1,current_year) if current_month <12 else (1,current_year+1))
@@ -275,17 +256,8 @@ if __name__ == "__main__":
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
 
 
-        window.refresh()
+'''
 
-    window.close()
-
-
-    with open(working_dir+'\\'+'master_roster.pickle', 'wb') as file:
-        pickle.dump(master_roster,file)
-    with open(working_dir+'\\'+'my_roster.pickle', 'wb')  as file:
-        pickle.dump(my_roster,file)
-    with open(working_dir + '\\' + 'swaps.pickle', 'wb') as file:
-        pickle.dump(swaps, file)
 
 
 

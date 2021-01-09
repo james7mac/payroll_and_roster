@@ -3,8 +3,9 @@
 #TODO: when updating roster you must input the number of full pages below as well as the coords for
 # final page
 # The roster must also be cleaned of all blue "available" this was done using 'Libre Draw'
-pdfFullPages = 8
-lastPcoords = [148.6, 107.0 ,1166.4, 251.5]
+pdfFullPages = 9
+pdfLastCoords = [148.6, 107.0 ,1166.4, 251.5]
+epoch = '30/06/21' #date in 30/6/99 format
 import time, os, tabula, csv, openpyxl, glob, pickle, logging, shutil, holidays
 import pandas as pd
 from selenium import webdriver
@@ -14,7 +15,7 @@ from datetime import timedelta
 from datetime import time as TIME
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 
-
+epoch = datetime.strptime(epoch,'%d/%m/%y')
 logging.basicConfig(level=logging.DEBUG, format=' %(asctime)s - %(levelname)s- %(message)s')
 logging.debug('Start of program')
 
@@ -221,24 +222,82 @@ class pRoster:
 
     ## PANDAS DATA FRAME ??
 class Roster:
-    def __init__(self, roster_location):
+    def __init__(self, roster_location, pdfFullPages, pdfLastCoords, epoch):
         self.roster_location = roster_location
-        if not hasattr(self, 'compiled_roster'):
-            self.compiled_roster = self.roster_build()
-        self.epoch = self.compiled_roster[0].epoch
+        self.fix_cell_helper = 0
+        self.pdfFullPages = pdfFullPages
+        self.epoch = epoch
+        self. pdfLastCoords = pdfLastCoords
+        if not hasattr(self, 'dfroster'):
+            self.df = self.roster_build(self.roster_location, pdfFullPages, pdfLastCoords)
 
 
 
-    def roster_build(self):
-        compiled_roster = []
-        if not hasattr(self, 'raw_roster'):
-            self.raw_roster = self.get_raw_workbook()
-        for day in range(28):
-            x = RosterDay(self.raw_roster, day)
-            x.extract_shifts()
-            compiled_roster.append(x)
-        del self.raw_roster
-        return compiled_roster
+
+    def roster_build(self, pdfPath, pdfFullPages, pdfLastCoords):
+        df1 = pd.DataFrame()
+        for i in range(1, pdfFullPages+1):
+            roster_pdf = open(pdfPath, 'rb')
+            # coords of the area in the roster found using GIMP:
+
+            #if i == pdfFullPages+1:
+            #    x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=pdfLastCoords)
+            #else:
+            x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=[100, 149, 589, 1167.9])
+            if type(x) == list:
+                x = x[0]
+            x.dropna(axis=0, thresh=30, inplace=True)
+            x.dropna(axis=1, how='all', inplace=True)
+            x.columns = [str(i) for i in range(1, 15)] + ['h1'] + [str(i) for i in range(15, 29)] + ['h2']
+            df1 = df1.append(x)
+        df1.index = [str(i + 1) for i in range(len(df1))]
+        df1.drop(['h1', 'h2'], axis=1, inplace=True)
+        df1 = df1.applymap(self.fix_cell)
+        df = pd.DataFrame()
+        for i in df1.iterrows():
+            for ii, dic in enumerate(i[1]):
+                dic['rosDay'] = ii + 1
+                dic['rosLine'] = int(i[0])
+                temp_df = pd.DataFrame(dic, index=[0])
+                df = df.append(temp_df)
+
+        return df
+
+    def fix_times(self, timeStr):
+        if timeStr == '2400':
+            timeStr = '0000'
+        return datetime.strptime(timeStr, "%H%M").time()
+
+    def fix_cell(self, x):
+        self.fix_cell_helper += 1
+        try:
+            if x.startswith('OFF'):
+                items = {'id': 'OFF', 'hours': None, 'start': None, 'finish': None, 'rest': False}
+            elif x.startswith('SPE'):
+                items = x.split('\r')
+                fixTimes = items[2].split('-')
+                del items[2]
+                fixTimes = [self.fix_times(i) for i in fixTimes]
+                items = {'id': items[0], 'hours': items[1], 'start': fixTimes[0], 'finish': fixTimes[1], 'rest': False}
+                if x.startswith('SPEX'):
+                    items['rest'] = True
+            elif x.startswith('EDO'):
+                items = {'id': 'EDO', 'hours': None, 'start': None, 'finish': None, 'rest': False}
+            elif x.lower().startswith('av'):
+                start, finish = x.split('\r')[-1].split('-')
+                job = {'id': 'AV', 'hours': '8:00', 'start': self.fix_times(start), 'finish': self.fix_times(finish),
+                       'rest': False}
+                return job
+            else:
+                print([x])
+                return x
+            return items
+        except(IndexError):
+            print('INDEX ERROR PASSING FOLLOWING:  ' + x)
+            print('col ' + str(self.fix_cell_helper // len(self.df)))
+            print('row ' + str(self.fix_cell_helper % len(self.df)))
+            return x
+
 
 
     def get_raw_workbook(self):
@@ -558,9 +617,9 @@ def unpickle():
 
 
 def main():
-    r = pRoster(working_dir+'\\MasterRoster.pdf')
-
-
+    r = Roster(working_dir+'\\MasterRoster.pdf', pdfFullPages, pdfLastCoords, epoch)
+    print(r.df.pivot(index='rosLine', columns='rosDay', values=['start','finish']).swaplevel(axis=1).sort_index(axis=1, ascending=[1,0]))
+    print(r.df.unstack())
 
 
 

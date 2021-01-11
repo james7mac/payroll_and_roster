@@ -34,16 +34,17 @@ else:
 
     ## PANDAS DATA FRAME ??
 class Roster:
-    def __init__(self, roster_location, pdfFullPages, pdfLastCoords, epoch):
+    def __init__(self, roster_location=working_dir, pdfFullPages=pdfFullPages, pdfLastCoords=pdfLastCoords, epoch=epoch):
         self.roster_location = roster_location
         self.fix_cell_helper = 0
         self.pdfFullPages = pdfFullPages
         self.epoch = epoch
         self. pdfLastCoords = pdfLastCoords
         if os.path.exists(working_dir+"//rosterDataFrame.csv"):
-            self.df = pd.read_csv(working_dir+"//rosterDataFrame.csv")
+            self.df = pd.read_csv(working_dir+"//rosterDataFrame.csv", parse_dates=['start','finish'])
         else:
-            self.df = self.roster_build(self.roster_location, pdfFullPages, pdfLastCoords)
+            self.df = self.roster_build(self.roster_location+'\\MasterRoster.pdf', pdfFullPages, pdfLastCoords)
+        self.df = self.df.set_index(['rosLine','rosDay'])
 
 
 

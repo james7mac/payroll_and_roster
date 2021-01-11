@@ -1,8 +1,10 @@
 import PySimpleGUIQt as sg
-import Roster, os, calendar
+import roster, os, calendar, json
 from datetime import datetime
 from calendar import monthrange
 from datetime import timedelta
+import pandas as pd
+import pandas as pdpd
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 
 
@@ -66,20 +68,19 @@ class select_date:
     def get_tile_value(self, event):
         return event[4:-2]
 
-    def get_date(self, event):
-        btn_date = int(window[event].ButtonText.split('\n')[0])
-        return datetime(current_year, current_month, btn_date)
+    def get_date(self, cal, event):
+        tile = int(self.get_tile_value(event))
+        date_tup = [i for i in cal.itermonthdays3(cal.date.year, cal.date.month)][tile]
+        return datetime(*date_tup).date()
 
-    def date(self, event):
-
+    def date(self,cal, event):
         if window[event].ButtonColor[1] != buttonc0l[1] and window[event].ButtonColor[1] != 'black':
             return
-        month = month_names.index(window['-MONTH-'].DisplayText.upper()) + 1
+        month = cal.date.month
         if (event, month) in self.dates:
             self.dates.remove((event, month))
             self.shade(month)
             return
-
         self.dates.append((event, month))
         self.shade(month)
 
@@ -99,81 +100,121 @@ class select_date:
                 window[selected[0]].update(button_color=('white', 'black'))
 
 
+
+
+class calend(calendar.Calendar):
+    def __init__(self, date, firstweekday=6):
+        super().__init__(firstweekday=firstweekday)
+        self.date = date
+
+    def next_month(self):
+        if self.date.month < 12:
+            self.date = datetime(self.date.year, self.date.month +1, 1)
+        else:
+            self.date = datetime(self.date.year+1,1, 1)
+        return self.date
+
+    def prev_month(self):
+        if self.date.month <= roster.epoch.month:
+            return
+        if self.date.month > 1:
+            self.date = datetime(self.date.year, self.date.month -1, 1)
+        else:
+            self.date = datetime(self.date.year-1,1, 1)
+        return self.date
+
+
+
 class Swaps:
     def __init__(self):
         self.swaps = []
 
-    def add(self, swap_with, swap_to_line, swap_dates, old_shifts):
-        self.swaps.append({'swap_with': swap_with, 'to_line': swap_to_line, 'dates': swap_dates, 'old_shifts': old_shifts})
-        my_roster.swap_days(swap_with, swap_dates, int(swap_to_line))
+    def add(self, swap_with, swap_to_line, swap_dates):
+        print(type(swap_dates[0]))
+        self.swaps.append({'swap_with': swap_with, 'to_line': swap_to_line, 'dates': swap_dates})
 
     def formatted_swaps(self):
         formatted = []
         for k,i in enumerate(self.swaps):
-            dates = ' '.join([x.strftime('%d/%m/%y') for x in i['dates']])
+            print(i['dates'][0])
+            dates = ' '.join([x.strftime('%d/%m,') for x in i['dates']])
             entry = str(k+1).ljust(4) + i['swap_with'] + i['to_line'].rjust(18) + dates.rjust(40)
             formatted.append(entry)
         return formatted
 
     def remove(self, list_position):
         itm = self.swaps[list_position-1]
-        for x, day in enumerate(itm['dates']):
-            for k, i in enumerate(my_roster.generated_roster):
-                if i['date'] == day:
-                    my_roster.generated_roster[k] = itm['old_shifts'][x]
-                    service = get_creds()
-                    master_roster.update_calander([my_roster.generated_roster[k]], service)
-        del self.swaps[list_position-1]
-        change_month(my_roster, current_month, current_year, selector)
 
-def change_month(year,month, selector):
-    print(month)
-    window['-YEAR-'].update(str(year))
-    window['-MONTH-'].update(calendar.month_name[month])
+        del self.swaps[list_position-1]
+        #change_month(my_roster, current_month, current_year, selector)
+
+def change_month(cal, selector):
+    window['-YEAR-'].update(str(cal.date.year))
+    window['-MONTH-'].update(calendar.month_name[cal.date.month])
     shade_swaps = []
     '''
     for i in swaps.swaps:
         print(shade_swaps)
         [shade_swaps.append(x.date())for x in i['dates']]
     '''
-    cal = calendar.Calendar(firstweekday=6)
-    for i, k in enumerate(cal.itermonthdates(year, month)):
-
+    shifts = get_shifts(cal, roster, line)
+    for i, k in enumerate(cal.itermonthdates(cal.date.year, cal.date.month)):
         colors=sg.theme_button_color()
-        button_text = "{0}\n\n{1}".format(k.day,'A')
-        window[enc_btn(i)].update(button_text, button_color=(colors))
+        text = 'off'
+        print(k)
+        try:
+            print(swaps.swaps[0]['dates'][0]==k['dates'])
+        except:
+            pass
 
+        if k in [i['dates'] for i in swaps.swaps]:
+            print('THERE IS A SWAP')
+        if not pd.isnull(shifts.iloc[i].start):
+            text = '{}:{}'.format(shifts.iloc[i].start.hour, shifts.iloc[i].start.minute)
+        button_text = "{0}\n\n{1}".format(k.day,text)
+        window[enc_btn(i)].update(button_text, button_color=(colors))
         #if d['date'].date() in shade_swaps:
         #    window[enc_btn(i + initial_weekday)].update(button_color=('yellow', 'navy'))
-    '''
 
-    prev_month = [i for i in prev_month if i['date'].year == roster_month[0]['date'].year]
 
-    prev_month = prev_month[-initial_weekday:]
-    previous_month_num = month-1 if month != 1 else 12
-    num_days_prev = monthrange(roster_month[0]['date'].year, previous_month_num)[1]
-    remaining_days = num_days_prev - initial_weekday
-    for i in range(initial_weekday):
-        shift = (prev_month[i] if len(prev_month) > i else  {'date':fake_date,'start':'NA'})
-        button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
-        window[enc_btn(i)].update(button_text,button_color=('white','grey'))
 
-    #length of calander grid minus start position minus length of month gives remamings days on grid
-    remaining_spots = 42-initial_weekday-len(roster_month)
-    next_month = next_month[:remaining_spots]
-    calender_index = 0
+    for i,k in enumerate(cal.itermonthdays3(cal.date.year, cal.date.month)):
+        month, day = k[1], k[2]
+        if month != cal.date.month:
+            button_text = "{0}\n\n{1}".format(day, '')
+            window[enc_btn(i)].update(button_text, button_color=('white', 'grey'))
 
-    for i in range(initial_weekday+len(roster_month),42):
 
-        shift = next_month[calender_index]
-        button_text = "{0}\n\n{1}".format(shift['date'].day, shift['start'])
-        window[enc_btn(i)].update(button_text,button_color=('white', 'grey'))
-        calender_index +=1
+    for i in range(35,42):
+        if len([i for i in cal.itermonthdays3(cal.date.year, cal.date.month)]) < 36:
+            window[enc_btn(i)].update(visible=False)   # button_color=('white','white'))
+        else:
+            window[enc_btn(i)].update(visible=True)
 
-    '''
+def get_shifts(cal, roster, line):
+    daysSinceEpoch = (cal.date - roster.epoch).days
+    line = line + daysSinceEpoch//28 % 83
+    day = daysSinceEpoch%28
+    if line  < 82:
+        first = roster.df.index.get_loc((line, day+1))-1
+        return roster.df[first:first+42]
+
+    else:
+        looping_df = roster.df[-56:].append(roster.df[:56])
+        print(looping_df)
+        first = looping_df.index.get_loc((line, day + 1)) - 1
+        return roster.df[first:first + 42]
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
 
-
+    roster = roster.Roster()
     date = "Today: " + datetime.now().strftime('%d/%m/%y')
     f = 'Helvetica'
     ff = (f, 14)
@@ -202,15 +243,37 @@ if __name__ == "__main__":
     window = sg.Window(date, layout)
     window['-SWAPLIST-'].old_shifts = []
     window.finalize()
+
+
+    if os.path.exists(working_dir+'//guiSettings.json'):
+        with open(working_dir + "\\guiSettings.json") as file:
+            settings = json.load(file)
+        line = settings['initialLine']
+    else:
+        settings={}
+        settings['name'] = sg.popup_get_text('Please type your name then press ok')
+        settings['initialLine'] = int(sg.popup_get_text('Ignoring all your swaps, what line are you on?'))
+        with open(working_dir+"\\guiSettings.json",'w') as file:
+            json.dump(settings,file)
+        line = settings['initialLine']
+
+
+    if os.path.exists(working_dir+'//swaps.json'):
+        with open(working_dir + "\\json.csv") as file:
+            swap_dict = json.load(file)
+        swaps = Swaps()
+        swaps.swaps = swap_dict
+    else:
+        swaps = Swaps()
+
+
     buttonc0l = window['-SWAP-'].ButtonColor
-    current_month = datetime.now().month
-    current_year = datetime.now().year
     selector = select_date()
     #window['-SWAPLIST-'].update(swaps.formatted_swaps())
-    change_month(datetime.now().year, datetime.now().month, selector)
-    cal = calendar.Calendar(firstweekday=6)
-    print(calendar.month(2021,1))
-    print([i for i in cal.itermonthdays(2021,1)])
+    cal = calend(datetime.now())
+    #todo delete dummy line below
+    cal.date = cal.date + timedelta(days=20)
+    change_month(cal, selector)
 
 
     while True:  # Event Loop
@@ -219,32 +282,34 @@ if __name__ == "__main__":
         if event in (None, 'Exit'):
             break
         window.refresh()
-    window.close()
-'''     
+
+
         if event == '-NEXT-':
-            if master_roster.epoch  + timedelta(days=330) > datetime(current_year, current_month, 1):
-                current_month,current_year = ((current_month +1,current_year) if current_month <12 else (1,current_year+1))
-                change_month(my_roster, current_month, current_year, selector)
+            cal.next_month()
+            change_month(cal, selector)
+            get_shifts(cal,roster,line)
+
 
         if event == '-PREV-':
-            year = datetime.now().year
-            if master_roster.epoch < datetime(current_year, current_month, 1):
-                current_month, current_year = ((current_month - 1, current_year) if current_month > 2 else (12, current_year -1))
-                change_month(my_roster, current_month, current_year, selector)
+            cal.prev_month()
+            change_month(cal, selector)
+
+
+
 
         if event[:4] == "--XD":
-            selector.date(event)
+            selector.date(cal, event)
+
 
         if event == "-SWAP-":
             swap_to_line = values['-INLINE-']
             swap_with = values['-INSWAP-']
 
-            swap_dates = [selector.get_date(x[0]) for x in selector.dates]
-            old_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
-            swaps.add(swap_with, swap_to_line, swap_dates, old_shifts)
+            swap_dates = [selector.get_date(cal, x[0]) for x in selector.dates]
+            swaps.add(swap_with, swap_to_line, swap_dates)
             selector.dates = []
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
-            change_month(my_roster, current_month, datetime.now().year, selector)
+            change_month(cal, selector)
             cal_popup = sg.popup_yes_no("would you like to update google calendar?")
             if cal_popup == 'Yes':
                 service = get_creds()
@@ -256,8 +321,7 @@ if __name__ == "__main__":
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
 
 
-'''
-
+    window.close()
 
 
 

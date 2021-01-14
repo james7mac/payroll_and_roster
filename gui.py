@@ -1,5 +1,5 @@
 import PySimpleGUIQt as sg
-import roster, os, calendar, json
+import roster, os, calendar, json, csv, sqlalchemy
 from datetime import datetime
 from calendar import monthrange
 from datetime import timedelta
@@ -130,7 +130,6 @@ class Swaps:
         self.swaps = []
 
     def add(self, swap_with, swap_to_line, swap_dates):
-        print(type(swap_dates[0]))
         self.swaps.append({'swap_with': swap_with, 'to_line': swap_to_line, 'dates': swap_dates})
 
     def formatted_swaps(self):
@@ -245,7 +244,7 @@ if __name__ == "__main__":
     window.finalize()
 
 
-    if os.path.exists(working_dir+'//guiSettings.json'):
+    if os.path.exists(working_dir+'\\guiSettings.json'):
         with open(working_dir + "\\guiSettings.json") as file:
             settings = json.load(file)
         line = settings['initialLine']
@@ -258,11 +257,13 @@ if __name__ == "__main__":
         line = settings['initialLine']
 
 
-    if os.path.exists(working_dir+'//swaps.json'):
-        with open(working_dir + "\\json.csv") as file:
-            swap_dict = json.load(file)
-        swaps = Swaps()
-        swaps.swaps = swap_dict
+    if os.path.exists(working_dir+'\\swaps.db'):
+        with open(working_dir + "\\swaps.csv") as file:
+            swaps = Swaps()
+            print("loading database...")
+            con = create_engine("sqlite:///database.db", echo=False)
+            swaps.swaps = pd.read_sql('playerStats', con, index_col='Player').drop_duplicates()
+
     else:
         swaps = Swaps()
 
@@ -309,6 +310,10 @@ if __name__ == "__main__":
             swaps.add(swap_with, swap_to_line, swap_dates)
             selector.dates = []
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
+            with open('swaps.csv', 'a') as file:
+                writer = csv.writer(file)
+                writer.writerows(swaps.swaps[-1])
+                print(swaps.swaps[-1])
             change_month(cal, selector)
             cal_popup = sg.popup_yes_no("would you like to update google calendar?")
             if cal_popup == 'Yes':
@@ -316,10 +321,16 @@ if __name__ == "__main__":
                 new_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
                 master_roster.update_calander(new_shifts, service)
 
+        #TODO: this code is cooked
         if event == "-DELSWAPBTN-":
+            swap = swaps[int(values['-DELSWAP-'])]
             swaps.remove(int(values['-DELSWAP-']))
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
-
+            cal_popup = sg.popup_yes_no("would you like to update google calendar?")
+            if cal_popup == 'Yes':
+                service = get_creds()
+                new_shifts = None
+                master_roster.update_calander(new_shifts, service)
 
     window.close()
 

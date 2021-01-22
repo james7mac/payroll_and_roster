@@ -1,11 +1,11 @@
 import PySimpleGUIQt as sg
-import roster, os, calendar, json, csv, sqlalchemy
+import roster, os, calendar, json, csv
 from datetime import datetime
 from calendar import monthrange
 from datetime import timedelta
 import pandas as pd
-import pandas as pdpd
 from googlecal import update_calander, check_work_event, delete_event, get_creds
+from sqlalchemy import create_engine
 
 
 
@@ -71,7 +71,7 @@ class select_date:
     def get_date(self, cal, event):
         tile = int(self.get_tile_value(event))
         date_tup = [i for i in cal.itermonthdays3(cal.date.year, cal.date.month)][tile]
-        return datetime(*date_tup).date()
+        return datetime(*date_tup)
 
     def date(self,cal, event):
         if window[event].ButtonColor[1] != buttonc0l[1] and window[event].ButtonColor[1] != 'black':
@@ -126,18 +126,20 @@ class calend(calendar.Calendar):
 
 
 class Swaps:
+    swapID = 0
     def __init__(self):
-        self.swaps = []
+        self.swaps = pd.DataFrame()
 
     def add(self, swap_with, swap_to_line, swap_dates):
-        self.swaps.append({'swap_with': swap_with, 'to_line': swap_to_line, 'dates': swap_dates})
+        self.swaps = self.swaps.append(pd.DataFrame({'swapID':[self.swapID],'swap_with': [swap_with], 'to_line': [swap_to_line],\
+                                                     'dates': [swap_dates]}), ignore_index=True)
+
 
     def formatted_swaps(self):
         formatted = []
-        for k,i in enumerate(self.swaps):
-            print(i['dates'][0])
-            dates = ' '.join([x.strftime('%d/%m,') for x in i['dates']])
-            entry = str(k+1).ljust(4) + i['swap_with'] + i['to_line'].rjust(18) + dates.rjust(40)
+        for i,row in self.swaps.iterrows():
+            entry = str(row['swapID']).ljust(4) + row['swap_with'] + row['to_line'].rjust(18) + row['dates'].\
+                strftime('%d/%m').rjust(20)
             formatted.append(entry)
         return formatted
 
@@ -151,31 +153,37 @@ def change_month(cal, selector):
     window['-YEAR-'].update(str(cal.date.year))
     window['-MONTH-'].update(calendar.month_name[cal.date.month])
     shade_swaps = []
-    '''
-    for i in swaps.swaps:
-        print(shade_swaps)
-        [shade_swaps.append(x.date())for x in i['dates']]
-    '''
+
     shifts = get_shifts(cal, roster, line)
+    print(shifts['start'])
+
+
+
     for i, k in enumerate(cal.itermonthdates(cal.date.year, cal.date.month)):
         colors=sg.theme_button_color()
         text = 'off'
-        print(k)
-        try:
-            print(swaps.swaps[0]['dates'][0]==k['dates'])
-        except:
-            pass
-
-        if k in [i['dates'] for i in swaps.swaps]:
-            print('THERE IS A SWAP')
         if not pd.isnull(shifts.iloc[i].start):
-            text = '{}:{}'.format(shifts.iloc[i].start.hour, shifts.iloc[i].start.minute)
-        button_text = "{0}\n\n{1}".format(k.day,text)
+            text = shifts.iloc[i].start.strftime('%H:%M')
+
+
+        #check for swaps in swap dataframe
+        s= swaps.swaps
+        if not s.empty:
+            if not s[s.dates==pd.Timestamp(k)].empty:
+                row = s[s.dates==pd.Timestamp(k)]
+
+                #get shifts for the swapped month
+                swapped_month = get_shifts(cal, roster, int(row['to_line']))
+                print(swapped_month['start'])
+                shift = swapped_month.iloc[i]
+                if pd.notnull(shift['start']):
+                    text = shift.start.strftime('%H:%M')
+                elif shift['id'] in ['OFF','EDO']:
+                    text = 'off'
+                else:
+                    raise
+        button_text = "{0}\n\n{1}".format(k.day, text)
         window[enc_btn(i)].update(button_text, button_color=(colors))
-        #if d['date'].date() in shade_swaps:
-        #    window[enc_btn(i + initial_weekday)].update(button_color=('yellow', 'navy'))
-
-
 
     for i,k in enumerate(cal.itermonthdays3(cal.date.year, cal.date.month)):
         month, day = k[1], k[2]
@@ -191,6 +199,7 @@ def change_month(cal, selector):
             window[enc_btn(i)].update(visible=True)
 
 def get_shifts(cal, roster, line):
+    print(cal.date)
     daysSinceEpoch = (cal.date - roster.epoch).days
     line = line + daysSinceEpoch//28 % 83
     day = daysSinceEpoch%28
@@ -255,14 +264,25 @@ if __name__ == "__main__":
         with open(working_dir+"\\guiSettings.json",'w') as file:
             json.dump(settings,file)
         line = settings['initialLine']
+        cal_popup = sg.popup_yes_no("would you like to update google calendar?")
+        if cal_popup == 'Yes':
+            service = get_creds()
+            shifts=get_shifts(roster, line)
+            print(shifts)
+            #master_roster.create_calendar_event()
 
+
+    con = create_engine("sqlite:///swaps.db", echo=False)
 
     if os.path.exists(working_dir+'\\swaps.db'):
-        with open(working_dir + "\\swaps.csv") as file:
+        with open(working_dir + "\\swaps.db") as file:
             swaps = Swaps()
             print("loading database...")
-            con = create_engine("sqlite:///database.db", echo=False)
-            swaps.swaps = pd.read_sql('playerStats', con, index_col='Player').drop_duplicates()
+            swaps.swaps = pd.read_sql('Swaps', con)
+            print(swaps.swaps)
+            window['-SWAPLIST-'].update(swaps.formatted_swaps())
+        #get last swapID from last sql entrry
+        swaps.swapID = swaps.swaps.iloc[-1].swapID + 1
 
     else:
         swaps = Swaps()
@@ -271,9 +291,10 @@ if __name__ == "__main__":
     buttonc0l = window['-SWAP-'].ButtonColor
     selector = select_date()
     #window['-SWAPLIST-'].update(swaps.formatted_swaps())
-    cal = calend(datetime.now())
-    #todo delete dummy line below
-    cal.date = cal.date + timedelta(days=20)
+    if datetime.now() > datetime(2021,2,1):
+        cal = calend(datetime(datetime.now().year, datetime.now().month, 1))
+    else:
+        cal = calend(datetime(2021,2,1))
     change_month(cal, selector)
 
 
@@ -307,13 +328,15 @@ if __name__ == "__main__":
             swap_with = values['-INSWAP-']
 
             swap_dates = [selector.get_date(cal, x[0]) for x in selector.dates]
-            swaps.add(swap_with, swap_to_line, swap_dates)
+            for dayte in swap_dates:
+                swaps.add(swap_with, swap_to_line, dayte)
+            swaps.swapID+=1
             selector.dates = []
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
-            with open('swaps.csv', 'a') as file:
-                writer = csv.writer(file)
-                writer.writerows(swaps.swaps[-1])
-                print(swaps.swaps[-1])
+
+
+
+
             change_month(cal, selector)
             cal_popup = sg.popup_yes_no("would you like to update google calendar?")
             if cal_popup == 'Yes':
@@ -321,16 +344,21 @@ if __name__ == "__main__":
                 new_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
                 master_roster.update_calander(new_shifts, service)
 
-        #TODO: this code is cooked
+
         if event == "-DELSWAPBTN-":
-            swap = swaps[int(values['-DELSWAP-'])]
-            swaps.remove(int(values['-DELSWAP-']))
+            swapid = int(values['-DELSWAP-'])
+            swaps.swaps = swaps.swaps[swaps.swaps.swapID != swapid]
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
             cal_popup = sg.popup_yes_no("would you like to update google calendar?")
+
+            # TODO: this code is cooked
             if cal_popup == 'Yes':
                 service = get_creds()
                 new_shifts = None
                 master_roster.update_calander(new_shifts, service)
+
+    if not swaps.swaps.empty:
+        swaps.swaps.to_sql('Swaps', con, if_exists='replace', index=False)
 
     window.close()
 

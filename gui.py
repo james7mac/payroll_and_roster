@@ -155,7 +155,7 @@ def change_month(cal, selector):
     shade_swaps = []
 
     shifts = get_shifts(cal, roster, line)
-    print(shifts['start'])
+
 
 
 
@@ -174,7 +174,6 @@ def change_month(cal, selector):
 
                 #get shifts for the swapped month
                 swapped_month = get_shifts(cal, roster, int(row['to_line']))
-                print(swapped_month['start'])
                 shift = swapped_month.iloc[i]
                 if pd.notnull(shift['start']):
                     text = shift.start.strftime('%H:%M')
@@ -199,7 +198,7 @@ def change_month(cal, selector):
             window[enc_btn(i)].update(visible=True)
 
 def get_shifts(cal, roster, line):
-    print(cal.date)
+    print(roster.df)
     daysSinceEpoch = (cal.date - roster.epoch).days
     line = line + daysSinceEpoch//28 % 83
     day = daysSinceEpoch%28
@@ -209,7 +208,6 @@ def get_shifts(cal, roster, line):
 
     else:
         looping_df = roster.df[-56:].append(roster.df[:56])
-        print(looping_df)
         first = looping_df.index.get_loc((line, day + 1)) - 1
         return roster.df[first:first + 42]
 
@@ -252,11 +250,35 @@ if __name__ == "__main__":
     window['-SWAPLIST-'].old_shifts = []
     window.finalize()
 
+    if datetime.now() > datetime(2021,2,1):
+        cal = calend(datetime(datetime.now().year, datetime.now().month, 1))
+    else:
+        cal = calend(datetime(2021,2,1))
 
     if os.path.exists(working_dir+'\\guiSettings.json'):
         with open(working_dir + "\\guiSettings.json") as file:
             settings = json.load(file)
         line = settings['initialLine']
+
+        service = get_creds()
+
+        #get exactly 1 month worth of shifts
+        shifts = get_shifts(cal, roster, line)
+        x = [True if i > 0 else False for i in cal.itermonthdays(cal.date.year, cal.date.month)]
+        shifts = shifts[:len(x)]
+        shifts=shifts[x]
+
+        calDays = [i for i in cal.itermonthdates(cal.date.year, cal.date.month)]
+        ii = 0
+        for i, row in enumerate(shifts.itertuples()):
+            print(row)
+            #all days in calDays that arent this month are 0 and should be skipped
+            #TODO: YOU ARE HERE
+            #TODO: YOU ARE HERE
+            if calDays[ii] == 0:
+                i+=1
+            row['date'] = c[ii]
+            ii+=1
     else:
         settings={}
         settings['name'] = sg.popup_get_text('Please type your name then press ok')
@@ -268,7 +290,6 @@ if __name__ == "__main__":
         if cal_popup == 'Yes':
             service = get_creds()
             shifts=get_shifts(roster, line)
-            print(shifts)
             #master_roster.create_calendar_event()
 
 
@@ -291,10 +312,7 @@ if __name__ == "__main__":
     buttonc0l = window['-SWAP-'].ButtonColor
     selector = select_date()
     #window['-SWAPLIST-'].update(swaps.formatted_swaps())
-    if datetime.now() > datetime(2021,2,1):
-        cal = calend(datetime(datetime.now().year, datetime.now().month, 1))
-    else:
-        cal = calend(datetime(2021,2,1))
+
     change_month(cal, selector)
 
 

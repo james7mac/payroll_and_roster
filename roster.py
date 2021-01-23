@@ -42,6 +42,8 @@ class Roster:
         self. pdfLastCoords = pdfLastCoords
         if os.path.exists(working_dir+"//rosterDataFrame.csv"):
             self.df = pd.read_csv(working_dir+"//rosterDataFrame.csv", parse_dates=['start','finish'])
+            self.df['start'] = pd.to_datetime(self.df['start']).dt.time
+            self.df['finish'] = pd.to_datetime((self.df['finish'])).dt.time
         else:
             self.df = self.roster_build(self.roster_location+'\\MasterRoster.pdf', pdfFullPages, pdfLastCoords)
         self.df = self.df.set_index(['rosLine','rosDay'])
@@ -149,33 +151,23 @@ class Roster:
         return job2
 
     def format_job(self, job):
-        if not job['required']:
+        for i,k in job.items():
+            print("{} is {}".format(i,k))
+        if job['id'] in ['OFF','EDO']:
             return None
         formatted = {}
-        if not job['isrest']:
+        if not job['rest']:
             formatted['summary'] = "Work"
         else:
-            formatted['summary'] = job['isrest']
-        if type(job['down']) == list:
-            down = self.add_destination(job['down'], job['down dest'])
-        else:
-            down = str(job['down']) + '   dest: ' + str(job['down dest'])
-        if type(job['up']) == list and type(job['up dest']) == list:
-            up = self.add_destination(job['up'], job['up dest'])
-        else:
-            up = str(job['up']) + '   dest: ' + str(job['up dest'])
+            formatted['summary'] = 'Work - Rest'
 
-        formatted['description'] = "DOWN\n{0}\n\n UP\n{1}".format(
-            down, up)
-        start_string = str(job['start']).rjust(4, '0')
-        end_string =  str(job['finish']).rjust(4, '0')
-        start = datetime.combine(job['date'], TIME(int(start_string[:2]), int(start_string[2:])))
-        end = datetime.combine(job['date'], TIME(int(end_string[:2]), int(end_string[3:])))
+        start = datetime.combine(job['date'],job['start'])
+        end = datetime.combine(job['date'], job['finish'])
         if end.hour in [0,1]:
             end = end + timedelta(days=1)
         formatted['start'] = {'dateTime': start.isoformat(), 'timeZone':'Australia/Melbourne'}
         formatted['end'] = {'dateTime': end.isoformat(), 'timeZone':'Australia/Melbourne'}
-        formatted['description'] = formatted ['description'] + '\n\n' + ' '.join(job['id'])
+        formatted['description'] =job['id']
         return formatted
 
 

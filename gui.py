@@ -212,6 +212,26 @@ def get_shifts(cal, roster, line):
         return roster.df[first:first + 42]
 
 
+def add_dates(cal, shifts):
+    # calDays has list of days in this month with a 0 for days from last month or next month
+    calDays = [i for i in cal.itermonthdays(cal.date.year, cal.date.month)]
+    monthdatelist = []
+    for i, row in enumerate(shifts.itertuples()):
+        #all days in calDays that arent this month are 0 and should be skipped
+        if i >= len(calDays):
+            break
+        if calDays[i] == 0:
+            continue
+
+        monthdatelist.append(datetime(cal.date.year, cal.date.month, calDays[i]))
+
+    #get rid of shifts not in this calender month
+    x = [True if i > 0 else False for i in cal.itermonthdays(cal.date.year, cal.date.month)]
+    shifts = shifts[:len(x)]
+    shifts = shifts[x]
+    #add dates to shifts datafame
+    shifts['date'] = monthdatelist
+    return shifts
 
 
 
@@ -259,26 +279,13 @@ if __name__ == "__main__":
         with open(working_dir + "\\guiSettings.json") as file:
             settings = json.load(file)
         line = settings['initialLine']
+        print('line is {}'.format(line))
 
-        service = get_creds()
-
-        #get exactly 1 month worth of shifts
+        #get shifts
         shifts = get_shifts(cal, roster, line)
-        x = [True if i > 0 else False for i in cal.itermonthdays(cal.date.year, cal.date.month)]
-        shifts = shifts[:len(x)]
-        shifts=shifts[x]
+        shifts = add_dates(cal, shifts)
+        #roster.update_calander(shifts)
 
-        calDays = [i for i in cal.itermonthdates(cal.date.year, cal.date.month)]
-        ii = 0
-        for i, row in enumerate(shifts.itertuples()):
-            print(row)
-            #all days in calDays that arent this month are 0 and should be skipped
-            #TODO: YOU ARE HERE
-            #TODO: YOU ARE HERE
-            if calDays[ii] == 0:
-                i+=1
-            row['date'] = c[ii]
-            ii+=1
     else:
         settings={}
         settings['name'] = sg.popup_get_text('Please type your name then press ok')

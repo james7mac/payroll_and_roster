@@ -6,7 +6,7 @@
 pdfFullPages = 9
 pdfLastCoords = [148.6, 107.0 ,1166.4, 251.5]
 epoch = '17/01/21' #date in 30/6/99 format
-import time, os, tabula,logging, shutil, holidays
+import time, os, tabula,logging, holidays
 import pandas as pd
 from datetime import datetime, timedelta
 from datetime import time as TIME
@@ -125,10 +125,11 @@ class Roster:
         update_calander(self.format_job(job), service)
         logging.debug('CAL UPDATE: ' + str(job['date']))
 
-    def update_calander(self, jobs, service):
+    def update_calander(self, jobs):
+        service = get_creds()
         print(jobs)
-        for job in jobs:
-            if job['required']:
+        for i,job in jobs.iterrows():
+            if job['id'] not in ['OFF', 'EDO']:
                 self.create_calander_event(job, service)
             else:
                 existing_event = check_work_event(job['date'], service)

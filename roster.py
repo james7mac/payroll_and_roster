@@ -40,6 +40,7 @@ class Roster:
         self.pdfFullPages = pdfFullPages
         self.epoch = epoch
         self. pdfLastCoords = pdfLastCoords
+        self.service = None
         if os.path.exists(working_dir+"//rosterDataFrame.csv"):
             self.df = pd.read_csv(working_dir+"//rosterDataFrame.csv", parse_dates=['start','finish'])
             self.df['start'] = pd.to_datetime(self.df['start']).dt.time
@@ -118,23 +119,33 @@ class Roster:
 
 
     def create_calander_event(self, job, service):
-        existing_event = check_work_event(job['date'], service)
+        '''existing_event = check_work_event(job['date'], service)
         print(self.format_job(job))
         if existing_event:
-            delete_event(existing_event, service)
+            #delete_event(existing_event, service)
+            '''
         update_calander(self.format_job(job), service)
         logging.debug('CAL UPDATE: ' + str(job['date']))
 
     def update_calander(self, jobs):
-        service = get_creds()
-        print(jobs)
+        if not self.service:
+            self.service = get_creds()
         for i,job in jobs.iterrows():
+            existing_event = check_work_event(job['date'], self.service)
+            if existing_event:
+                dstring = existing_event['start']['dateTime'][:-6]
+                d = datetime.strptime(dstring,'%Y-%m-%dT%H:%M:%S')
+                print('deleting event {}'.format(d))
+                delete_event(existing_event['id'], self.service)
+
+            if job['id'] in ['OFF', 'EDO']:
+                continue
+
+
             if job['id'] not in ['OFF', 'EDO']:
-                self.create_calander_event(job, service)
-            else:
-                existing_event = check_work_event(job['date'], service)
-                if existing_event:
-                    delete_event(existing_event, service)
+                print('EVENT BEING CREATED')
+                self.create_calander_event(job, self.service)
+
 
     def add_destination(self, job, destination):
         offset = 0

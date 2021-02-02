@@ -7,7 +7,7 @@ import pandas as pd
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 from sqlalchemy import create_engine
 
-
+monkeypatch = False
 
 if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
@@ -149,6 +149,16 @@ class Swaps:
         del self.swaps[list_position-1]
         #change_month(my_roster, current_month, current_year, selector)
 
+def delete_google_cal_between(date1, date2):
+    for i in pd.date_range(date1, date2):
+        service = get_creds()
+        existing_event = check_work_event(i,service)
+        if existing_event:
+            delete_event(existing_event['id'], service)
+
+
+
+
 def change_month(cal, selector):
     window['-YEAR-'].update(str(cal.date.year))
     window['-MONTH-'].update(calendar.month_name[cal.date.month])
@@ -198,7 +208,6 @@ def change_month(cal, selector):
             window[enc_btn(i)].update(visible=True)
 
 def get_shifts(cal, roster, line):
-    print(roster.df)
     daysSinceEpoch = (cal.date - roster.epoch).days
     line = line + daysSinceEpoch//28 % 83
     day = daysSinceEpoch%28
@@ -234,12 +243,20 @@ def add_dates(cal, shifts):
     return shifts
 
 
-
+def patch_calendar(self, jobs):
+    print(jobs)
+    for i, job in jobs.iterrows():
+        if job['id'] not in ['OFF', 'EDO']:
+            print('{}   on:  {}'.format(job['date'].strftime("%a %d-%m"), job['start']))
+            #print(self.format_job(job))
+        else:
+            print('{}......NO WORK'.format(job['date']))
 
 
 
 if __name__ == "__main__":
-
+    if monkeypatch:
+        roster.Roster.update_calander = patch_calendar
     roster = roster.Roster()
     date = "Today: " + datetime.now().strftime('%d/%m/%y')
     f = 'Helvetica'
@@ -279,12 +296,6 @@ if __name__ == "__main__":
         with open(working_dir + "\\guiSettings.json") as file:
             settings = json.load(file)
         line = settings['initialLine']
-        print('line is {}'.format(line))
-
-        #get shifts
-        shifts = get_shifts(cal, roster, line)
-        shifts = add_dates(cal, shifts)
-        #roster.update_calander(shifts)
 
     else:
         settings={}
@@ -305,7 +316,7 @@ if __name__ == "__main__":
     if os.path.exists(working_dir+'\\swaps.db'):
         with open(working_dir + "\\swaps.db") as file:
             swaps = Swaps()
-            print("loading database...")
+            print("loading swaps database...")
             swaps.swaps = pd.read_sql('Swaps', con)
             print(swaps.swaps)
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
@@ -347,6 +358,9 @@ if __name__ == "__main__":
         if event[:4] == "--XD":
             selector.date(cal, event)
 
+        #TODO: ADD THIS BUTTON
+        if event == "-UPDATECAL-":
+            cal_popup =('how many months from {} would you like to update?'.format(cal.date.strftime('%d-%b')))
 
         if event == "-SWAP-":
             swap_to_line = values['-INLINE-']
@@ -356,18 +370,24 @@ if __name__ == "__main__":
             for dayte in swap_dates:
                 swaps.add(swap_with, swap_to_line, dayte)
             swaps.swapID+=1
+            swapcal = calend(datetime(swap_dates[0].year, swap_dates[0].month, 1))
             selector.dates = []
+
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
 
 
 
 
             change_month(cal, selector)
-            cal_popup = sg.popup_yes_no("would you like to update google calendar?")
+            cal_popup = "Yes"
+            #cal_popup = sg.popup_yes_no("would you like to update google calendar?")
             if cal_popup == 'Yes':
-                service = get_creds()
-                new_shifts = [i for i in my_roster.generated_roster if i['date'] in swap_dates]
-                master_roster.update_calander(new_shifts, service)
+                swapDF = get_shifts(swapcal, roster, int(swap_to_line))
+                swapDF = add_dates(swapcal, swapDF)
+                swapDF = swapDF[swapDF['date'].isin(swap_dates)]
+                print(swapDF)
+                roster.update_calander(swapDF)
+
 
 
         if event == "-DELSWAPBTN-":

@@ -51,10 +51,10 @@ def check_work_event(start_date, service):
     utc_dt_end = local_dt_end.astimezone(pytz.utc).isoformat()
 
     events = service.events().list(calendarId='primary',timeMin=utc_dt_start, timeMax=utc_dt_end).execute()
-    work_names = 'work', 'rest', 'ex'
+    work_names = ['work', 'rest', 'ex']
     for i in events['items']:
         if i['summary'].lower() in work_names:
-            return i['id']
+            return i
     return False
 
 def delete_event(id, service):

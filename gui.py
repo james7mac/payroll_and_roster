@@ -206,13 +206,17 @@ def change_month(cal, selector):
             window[enc_btn(i)].update(visible=False)   # button_color=('white','white'))
         else:
             window[enc_btn(i)].update(visible=True)
-
+#TODO: PROBLEM WITH SWAP LOGIC. Due to the epoch being mid roster
+# the swaps are wrong depeding on which half of the roster month
+# we are in.
 def get_shifts(cal, roster, line):
     daysSinceEpoch = (cal.date - roster.epoch).days
     line = line + daysSinceEpoch//28 % 83
     day = daysSinceEpoch%28
     if line  < 82:
         first = roster.df.index.get_loc((line, day+1))-1
+        print(first)
+        print(roster.df[first:first+42])
         return roster.df[first:first+42]
 
     else:
@@ -275,6 +279,7 @@ if __name__ == "__main__":
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [sg.Button('Upload Month', key='-uploadMonth-')],
         [sg.Text('', size=[1,1])],
         [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
@@ -321,8 +326,10 @@ if __name__ == "__main__":
             print(swaps.swaps)
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
         #get last swapID from last sql entrry
-        swaps.swapID = swaps.swaps.iloc[-1].swapID + 1
-
+        if not swaps.swaps.empty:
+            swaps.swapID = swaps.swaps.iloc[-1].swapID + 1
+        else:
+            swaps = Swaps()
     else:
         swaps = Swaps()
 
@@ -352,7 +359,9 @@ if __name__ == "__main__":
             cal.prev_month()
             change_month(cal, selector)
 
-
+        if event == '-uploadMonth-':
+            shifts = change_month(cal, selector)
+            roster.update_calander(shifts)
 
 
         if event[:4] == "--XD":
@@ -367,6 +376,7 @@ if __name__ == "__main__":
             swap_with = values['-INSWAP-']
 
             swap_dates = [selector.get_date(cal, x[0]) for x in selector.dates]
+            print(swap_dates)
             for dayte in swap_dates:
                 swaps.add(swap_with, swap_to_line, dayte)
             swaps.swapID+=1
@@ -379,8 +389,7 @@ if __name__ == "__main__":
 
 
             change_month(cal, selector)
-            cal_popup = "Yes"
-            #cal_popup = sg.popup_yes_no("would you like to update google calendar?")
+            cal_popup = sg.popup_yes_no("would you like to update google calendar?")
             if cal_popup == 'Yes':
                 swapDF = get_shifts(swapcal, roster, int(swap_to_line))
                 swapDF = add_dates(swapcal, swapDF)
@@ -402,8 +411,7 @@ if __name__ == "__main__":
                 new_shifts = None
                 master_roster.update_calander(new_shifts, service)
 
-    if not swaps.swaps.empty:
-        swaps.swaps.to_sql('Swaps', con, if_exists='replace', index=False)
+    swaps.swaps.to_sql('Swaps', con, if_exists='replace', index=False)
 
     window.close()
 

@@ -31,8 +31,6 @@ elif os.environ['COMPUTERNAME'] == 'JAMESPC':
 else:
     Exception()
 
-
-    ## PANDAS DATA FRAME ??
 class Roster:
     def __init__(self, roster_location=working_dir, pdfFullPages=pdfFullPages, pdfLastCoords=pdfLastCoords, epoch=epoch):
         self.roster_location = roster_location
@@ -82,48 +80,8 @@ class Roster:
 
         return df
 
-    def fix_times(self, timeStr):
-        if timeStr == '2400':
-            timeStr = '0000'
-        return datetime.strptime(timeStr, "%H%M").time()
-
-    def fix_cell(self, x):
-        self.fix_cell_helper += 1
-        try:
-            if x.startswith('OFF'):
-                items = {'id': 'OFF', 'hours': None, 'start': None, 'finish': None, 'rest': False}
-            elif x.startswith('SPE'):
-                items = x.split('\r')
-                fixTimes = items[2].split('-')
-                del items[2]
-                fixTimes = [self.fix_times(i) for i in fixTimes]
-                items = {'id': items[0], 'hours': items[1], 'start': fixTimes[0], 'finish': fixTimes[1], 'rest': False}
-                if x.startswith('SPEX'):
-                    items['rest'] = True
-            elif x.startswith('EDO'):
-                items = {'id': 'EDO', 'hours': None, 'start': None, 'finish': None, 'rest': False}
-            elif x.lower().startswith('av'):
-                start, finish = x.split('\r')[-1].split('-')
-                job = {'id': 'AV', 'hours': '8:00', 'start': self.fix_times(start), 'finish': self.fix_times(finish),
-                       'rest': False}
-                return job
-            else:
-                print([x])
-                return x
-            return items
-        except(IndexError):
-            print('INDEX ERROR PASSING FOLLOWING:  ' + x)
-            print('col ' + str(self.fix_cell_helper // len(self.df)))
-            print('row ' + str(self.fix_cell_helper % len(self.df)))
-            return x
-
 
     def create_calander_event(self, job, service):
-        '''existing_event = check_work_event(job['date'], service)
-        print(self.format_job(job))
-        if existing_event:
-            #delete_event(existing_event, service)
-            '''
         update_calander(self.format_job(job), service)
         logging.debug('CAL UPDATE: ' + str(job['date']))
 
@@ -146,21 +104,6 @@ class Roster:
                 print('EVENT BEING CREATED')
                 self.create_calander_event(job, self.service)
 
-
-    def add_destination(self, job, destination):
-        offset = 0
-        job2 = ''
-        for i, j in enumerate(job):
-            if 'prep' in j.lower():
-                offset += 1
-                continue
-            else:
-                try:
-                    dest = destination[i - offset] if type(destination) == list else destination
-                    job2 += str(job[i]) + ',  dest: ' + str(dest) + '\n'
-                except:
-                    job2 += "\ndestError, Raw destination info:\n" + str(destination)
-        return job2
 
     def format_job(self, job):
         for i,k in job.items():

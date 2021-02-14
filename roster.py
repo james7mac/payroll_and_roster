@@ -145,7 +145,3 @@ if __name__ == "__main__":
 
 
 
-# pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
-# TODO: add py.test tests
-# TODO: fix calander api max call errors
-# TODO: add functionality to reconcile reported hours worked vs reported hours earned

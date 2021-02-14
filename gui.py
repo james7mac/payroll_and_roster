@@ -137,9 +137,10 @@ class Swaps:
 
     def formatted_swaps(self):
         formatted = []
-        for i,row in self.swaps.iterrows():
-            entry = str(row['swapID']).ljust(4) + row['swap_with'] + row['to_line'].rjust(18) + row['dates'].\
-                strftime('%d/%m').rjust(20)
+        swaplist = self.swaps.sort_values(by='dates')
+        for i,row in swaplist.iterrows():
+            entry = "{}{}{}id: {}".format(row['dates'].strftime('%d/%m').ljust(8), row['swap_with'].ljust(20), row['to_line'].ljust(6), str(row['swapID']).ljust(3))
+
             formatted.append(entry)
         return formatted
 
@@ -157,6 +158,17 @@ def delete_google_cal_between(date1, date2):
             delete_event(existing_event['id'], service)
 
 
+def swap(swp):
+    date, to_line = swp['dates'], int(swp['to_line'].values)
+    df = roster.df
+    df = df.loc[to_line]
+    epochDays = int((date-roster.epoch).dt.days)
+    column = (epochDays % 28) + 1
+    shift = df.loc[column]
+    shift['rosLine'] = to_line
+    shift['rosDay'] = column
+    shift['date'] = date
+    return shift
 
 
 def change_month(cal, selector):
@@ -180,17 +192,16 @@ def change_month(cal, selector):
         s= swaps.swaps
         if not s.empty:
             if not s[s.dates==pd.Timestamp(k)].empty:
+                print(pd.Timestamp(k))
                 row = s[s.dates==pd.Timestamp(k)]
-
-                #get shifts for the swapped month
-                swapped_month = get_shifts(cal, roster, int(row['to_line']))
-                shift = swapped_month.iloc[i]
-                if pd.notnull(shift['start']):
-                    text = shift.start.strftime('%H:%M')
-                elif shift['id'] in ['OFF','EDO']:
+                SWAP = swap(row)
+                if pd.notnull(SWAP.start):
+                    text = SWAP.start.strftime('%H:%M')
+                elif SWAP.id in ['OFF', 'EDO']:
                     text = 'off'
                 else:
                     raise
+
         button_text = "{0}\n\n{1}".format(k.day, text)
         window[enc_btn(i)].update(button_text, button_color=(colors))
 
@@ -206,23 +217,50 @@ def change_month(cal, selector):
             window[enc_btn(i)].update(visible=False)   # button_color=('white','white'))
         else:
             window[enc_btn(i)].update(visible=True)
-#TODO: PROBLEM WITH SWAP LOGIC. Due to the epoch being mid roster
-# the swaps are wrong depeding on which half of the roster month
-# we are in.
+
+
+def apply_months_swaps(month):
+    #must have add_dates() applied first
+    SWAPS = swaps.swaps[swaps.swaps['dates'].isin(month.date)]
+    for i, k in month.iterrows():
+        for o, p in SWAPS.iterrows():
+            if k.date == p.dates:
+                new_shift = swap(pd.DataFrame(p).T)
+                month.at[i, 'start'] = new_shift.start
+                month.at[i, 'finish'] = new_shift.finish
+                month.at[i, 'id'] = new_shift.id
+                month.at[i, 'hours'] = new_shift.hours
+                month.at[i, 'rest'] = new_shift.rest
+    return month
+
 def get_shifts(cal, roster, line):
+    print(cal.date)
     daysSinceEpoch = (cal.date - roster.epoch).days
-    line = line + daysSinceEpoch//28 % 83
+    running_line = (line-1 + (daysSinceEpoch//28)) % totalRosterLines + 1
+    print('THIS IS LINE {}'.format(line))
     day = daysSinceEpoch%28
-    if line  < 82:
-        first = roster.df.index.get_loc((line, day+1))-1
+    print('total roster line.... {}'.format(running_line))
+    if running_line  < totalRosterLines-1:
+        first = roster.df.index.get_loc((running_line, day+1))-1
         print(first)
         print(roster.df[first:first+42])
-        return roster.df[first:first+42]
+        print('{} since epoch'.format(daysSinceEpoch))
+        print('{} is day num'.format(day))
+        print(calendar.monthrange(cal.date.year, cal.date.month))
+        #subract the number of days at the beginning of calendar that are lead-in from prev month
+        first-=calendar.monthrange(cal.date.year, cal.date.month)[0]
+
 
     else:
         looping_df = roster.df[-56:].append(roster.df[:56])
-        first = looping_df.index.get_loc((line, day + 1)) - 1
-        return roster.df[first:first + 42]
+        first = looping_df.index.get_loc((running_line, day + 1)) - 1
+    #hacky solution to glitch that occurs when first day of month is Sunday, causing roster
+    #to be off by a week. May cause issue if a Sunday falls on the first at the same time as the
+    #roster loops back around
+    if cal.date.weekday() == 6:
+        first+=7
+
+    return roster.df[first:first + 42]
 
 
 def add_dates(cal, shifts):
@@ -262,6 +300,7 @@ if __name__ == "__main__":
     if monkeypatch:
         roster.Roster.update_calander = patch_calendar
     roster = roster.Roster()
+    totalRosterLines = len(roster.df.groupby(level=0))
     date = "Today: " + datetime.now().strftime('%d/%m/%y')
     f = 'Helvetica'
     ff = (f, 14)
@@ -283,7 +322,7 @@ if __name__ == "__main__":
         [sg.Text('', size=[1,1])],
         [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
-        [sg.Listbox([],key='-SWAPLIST-')],
+        [sg.Listbox([],key='-SWAPLIST-',font=('Courier',10))],
         [Txt('Delete Swap:'), In('', key='-DELSWAP-'), sg.Button('delete', key='-DELSWAPBTN-')],
         [sg.Button('Exit')]
     ]
@@ -360,16 +399,16 @@ if __name__ == "__main__":
             change_month(cal, selector)
 
         if event == '-uploadMonth-':
-            shifts = change_month(cal, selector)
-            roster.update_calander(shifts)
+            shifts = get_shifts(cal, roster, line)
+            month = add_dates(cal,shifts)
+            month = apply_months_swaps(month)
+            roster.update_calander(month)
+
 
 
         if event[:4] == "--XD":
             selector.date(cal, event)
 
-        #TODO: ADD THIS BUTTON
-        if event == "-UPDATECAL-":
-            cal_popup =('how many months from {} would you like to update?'.format(cal.date.strftime('%d-%b')))
 
         if event == "-SWAP-":
             swap_to_line = values['-INLINE-']
@@ -411,7 +450,8 @@ if __name__ == "__main__":
                 new_shifts = None
                 master_roster.update_calander(new_shifts, service)
 
-    swaps.swaps.to_sql('Swaps', con, if_exists='replace', index=False)
+    if not swaps.swaps.empty:
+        swaps.swaps.to_sql('Swaps', con, if_exists='replace', index=False)
 
     window.close()
 

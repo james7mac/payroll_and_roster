@@ -159,6 +159,7 @@ def delete_google_cal_between(date1, date2):
 
 
 def swap(swp):
+
     date, to_line = swp['dates'], int(swp['to_line'].values)
     df = roster.df
     df = df.loc[to_line]
@@ -294,6 +295,23 @@ def patch_calendar(self, jobs):
         else:
             print('{}......NO WORK'.format(job['date']))
 
+def find_line(date, name):
+    daysSinceEpoch = (date - roster.epoch).days
+    initialLine = names.index(name.lower()) + 1
+    print(daysSinceEpoch//28)
+    return ((daysSinceEpoch// 28) + initialLine)%83
+
+def find_name(name):
+    if name in names:
+        return name
+    else:
+        possible = []
+        for i in names:
+            if i.find(name) != -1:
+                possible.append(i)
+        new_try = sg.popup_get_text("Name Not Found. Use part of the name and it may show below:\n{}".format(
+            str(possible)))
+        return find_name(new_try.lower())
 
 
 if __name__ == "__main__":
@@ -301,12 +319,15 @@ if __name__ == "__main__":
         roster.Roster.update_calander = patch_calendar
     roster = roster.Roster()
     totalRosterLines = len(roster.df.groupby(level=0))
+    with open('roster_order') as file:
+        names = file.read().split('\n')
+        names = [i.lower() for i in names]
     date = "Today: " + datetime.now().strftime('%d/%m/%y')
     f = 'Helvetica'
     ff = (f, 14)
     sg.theme('LightGrey')
 
-    col1 = [sg.Listbox(values=['ITCH', 'NI', 'SUN'], size=(20,20), key='-SWAPHIST-')]
+    #col1 = [sg.Listbox(values=['ITCH', 'NI', 'SUN'], size=(20,20), key='-SWAPLIST-')]
 
     layout = [
         [sg.Button('Previous', key="-PREV-"), Txt_dt(key='-MONTH-', justification='r'), Txt_dt(key='-YEAR-', justification='l'), sg.Button('Next', key='-NEXT-')],
@@ -318,7 +339,7 @@ if __name__ == "__main__":
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [sg.Button('Upload Month', key='-uploadMonth-')],
+        [sg.Button('Upload Month', key='-uploadMonth-'),sg.Button('Find Line', key='-findLine-')],
         [sg.Text('', size=[1,1])],
         [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
@@ -362,7 +383,9 @@ if __name__ == "__main__":
             swaps = Swaps()
             print("loading swaps database...")
             swaps.swaps = pd.read_sql('Swaps', con)
-            print(swaps.swaps)
+            s = swaps.swaps
+            s = s[s.dates>(datetime.now()-timedelta(days=7))]
+            print(s)
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
         #get last swapID from last sql entrry
         if not swaps.swaps.empty:
@@ -404,7 +427,16 @@ if __name__ == "__main__":
             month = apply_months_swaps(month)
             roster.update_calander(month)
 
-
+        if event == '-findLine-':
+            target = sg.popup_get_text('Who are you looking for?')
+            if target:
+                target.lower()
+                valid_name= find_name(target)
+                lines = []
+                #print(selector.get_date(cal,selector.dates[0][0]))
+                for i in selector.dates:
+                    lines.append(find_line(selector.get_date(cal,i[0]), valid_name))
+                sg.popup_ok('{} found on lines: {}'.format(valid_name, lines))
 
         if event[:4] == "--XD":
             selector.date(cal, event)
@@ -413,30 +445,49 @@ if __name__ == "__main__":
         if event == "-SWAP-":
             swap_to_line = values['-INLINE-']
             swap_with = values['-INSWAP-']
-
+            overwrite = True
             swap_dates = [selector.get_date(cal, x[0]) for x in selector.dates]
-            print(swap_dates)
+            swap_dates.sort()
+            check_previous =  set(swap_dates).intersection(swaps.swaps.dates)
+            if check_previous:
+                s = swaps.swaps
+                old_swaps = s[s.dates.isin(check_previous)]
+                print(old_swaps)
+                overwrite = sg.popup_yes_no('Overwrite old swaps with {}'.format([i for i in old_swaps.swap_with]))
+                if overwrite == 'Yes':
+                    swaps.swaps = swaps.swaps[~swaps.swaps.dates.isin(check_previous)]
+                else:
+                    overwrite = False
+
             for dayte in swap_dates:
-                swaps.add(swap_with, swap_to_line, dayte)
+                if not overwrite:
+                    break
+                if (dayte-roster.epoch).days//28 == (swap_dates[0]-roster.epoch).days//28:
+                    swaps.add(swap_with, swap_to_line, dayte)
+                else:
+                    swaps.add(swap_with, str(int(swap_to_line)+1), dayte)
+                    print(swaps.swaps)
             swaps.swapID+=1
+
             swapcal = calend(datetime(swap_dates[0].year, swap_dates[0].month, 1))
             selector.dates = []
 
             window['-SWAPLIST-'].update(swaps.formatted_swaps())
+            change_month(cal, selector)
 
 
-
-
+            '''
+            swapcal = calend(datetime(swap_dates[0].year, swap_dates[0].month, 1))
             change_month(cal, selector)
             cal_popup = sg.popup_yes_no("would you like to update google calendar?")
-            if cal_popup == 'Yes':
+            if cal_popup == 'Yes' and overwrite == 'Yes':
                 swapDF = get_shifts(swapcal, roster, int(swap_to_line))
                 swapDF = add_dates(swapcal, swapDF)
                 swapDF = swapDF[swapDF['date'].isin(swap_dates)]
                 print(swapDF)
                 roster.update_calander(swapDF)
 
-
+            '''
 
         if event == "-DELSWAPBTN-":
             swapid = int(values['-DELSWAP-'])

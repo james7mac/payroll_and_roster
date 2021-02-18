@@ -5,6 +5,7 @@
 # The roster must also be cleaned of all blue "available" this was done using 'Libre Draw'
 pdfFullPages = 9
 pdfLastCoords = [148.6, 107.0 ,1166.4, 251.5]
+nameCoords = []
 epoch = '17/01/21' #date in 30/6/99 format
 import time, os, tabula,logging, holidays
 import pandas as pd
@@ -97,7 +98,10 @@ class Roster:
                 delete_event(existing_event['id'], self.service)
 
             if job['id'] in ['OFF', 'EDO']:
-                continue
+                existing_event = check_work_event(job['date'], self.service)
+                if existing_event:
+                    delete_event(existing_event['id'], self.service)
+
 
 
             if job['id'] not in ['OFF', 'EDO']:

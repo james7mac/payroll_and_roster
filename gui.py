@@ -8,7 +8,7 @@ from googlecal import update_calander, check_work_event, delete_event, get_creds
 from sqlalchemy import create_engine
 
 monkeypatch = False
-
+startTimeWarning = 11
 if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
     slip_inbox =  ''
@@ -74,7 +74,7 @@ class select_date:
         return datetime(*date_tup)
 
     def date(self,cal, event):
-        if window[event].ButtonColor[1] != buttonc0l[1] and window[event].ButtonColor[1] != 'black':
+        if window[event].ButtonColor[1] == 'grey':
             return
         month = cal.date.month
         if (event, month) in self.dates:
@@ -184,13 +184,20 @@ def change_month(cal, selector):
 
     for i, k in enumerate(cal.itermonthdates(cal.date.year, cal.date.month)):
         colors=sg.theme_button_color()
+        window[enc_btn(i)].update(button_color=(colors))
         text = 'off'
         if not pd.isnull(shifts.iloc[i].start):
             text = shifts.iloc[i].start.strftime('%H:%M')
 
+            if shifts.iloc[i].start.hour < startTimeWarning:
+                window[enc_btn(i)].update(button_color=('white', 'maroon'))
+
+
+
 
         #check for swaps in swap dataframe
         s= swaps.swaps
+
         if not s.empty:
             if not s[s.dates==pd.Timestamp(k)].empty:
                 print(pd.Timestamp(k))
@@ -202,9 +209,10 @@ def change_month(cal, selector):
                     text = 'off'
                 else:
                     raise
+                window[enc_btn(i)].update(button_color=('white', 'navy'))
 
         button_text = "{0}\n\n{1}".format(k.day, text)
-        window[enc_btn(i)].update(button_text, button_color=(colors))
+        window[enc_btn(i)].update(button_text)
 
     for i,k in enumerate(cal.itermonthdays3(cal.date.year, cal.date.month)):
         month, day = k[1], k[2]
@@ -503,6 +511,15 @@ if __name__ == "__main__":
 
     if not swaps.swaps.empty:
         swaps.swaps.to_sql('Swaps', con, if_exists='replace', index=False)
+        #second DB connection to creat a backup once per week
+        con2 = create_engine("sqlite:///swaps_BACKUP.db", echo=False)
+        if os.path.exists('swaps_BACKUP.db'):
+           if os.path.getmtime('swaps_BACKUP.db') + timedelta(days=7).total_seconds() < datetime.today().timestamp():
+                swaps.swaps.to_sql('Swaps', con2, if_exists='replace', index=False)
+        else:
+            swaps.swaps.to_sql('Swaps', con2, if_exists='replace', index=False)
+
+
 
     window.close()
 

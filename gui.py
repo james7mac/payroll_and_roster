@@ -323,6 +323,8 @@ def find_name(name):
 
 
 if __name__ == "__main__":
+    os.chdir(working_dir)
+    print(os.getcwd())
     if monkeypatch:
         roster.Roster.update_calander = patch_calendar
     roster = roster.Roster()

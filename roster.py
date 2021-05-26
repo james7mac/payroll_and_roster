@@ -22,13 +22,10 @@ for d,n in sorted(holidays.CountryHoliday('Australia', prov="VIC", years=2020).i
     print('{}   {}'.format(d,n))
 if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
-    slip_inbox =  ''
-    gecko_driver = r"C:\Users\james\Google Drive\System Files\geckodriver.exe"
 
 elif os.environ['COMPUTERNAME'] == 'JAMESPC':
-    working_dir = r'A:\Python\payroll_and_roster'
-    gecko_driver = r'A:\Program Files\geckodriver.exe'
-    slip_inbox = r'C:\Users\james\Downloads'
+    working_dir = r'D:\Python\payroll_and_roster'
+
 else:
     Exception()
 

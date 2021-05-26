@@ -1,6 +1,7 @@
 import PySimpleGUIQt as sg
 import roster, os, calendar, json, csv
 from datetime import datetime
+from datetime import date as DATE
 from calendar import monthrange
 from datetime import timedelta
 import pandas as pd
@@ -11,13 +12,9 @@ monkeypatch = False
 startTimeWarning = 11
 if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
-    slip_inbox =  ''
-    gecko_driver = r"C:\Users\james\Google Drive\System Files\geckodriver.exe"
 
 elif os.environ['COMPUTERNAME'] == 'JAMESPC':
-    working_dir = r'A:\Python\payroll_and_roster'
-    gecko_driver = r'A:\Program Files\geckodriver.exe'
-    slip_inbox = r'C:\Users\james\Downloads'
+    working_dir = r'D:\Python\payroll_and_roster'
 else:
     Exception()
 
@@ -29,6 +26,14 @@ def Btn_day(*args, **kwargs):
     return (sg.Button(*args, "X", size_px=(70, 70), font=(f, 12),
                       key=(enc_btn(Btn_day.count-1)), **kwargs))
 Btn_day.count = 0
+
+def weekText():
+    week = []
+    for i in range(6):
+        week.append(sg.Text("-", key=('-wk{}-'.format(str(i)))))
+    return week
+        
+        
 
 def Txt_day(*args, **kwargs):
     return (sg.Text(*args, size_px=(70, 30), font=ff, justification='center', background_color='lightgrey',
@@ -185,12 +190,14 @@ def change_month(cal, selector):
     for i, k in enumerate(cal.itermonthdates(cal.date.year, cal.date.month)):
         colors=sg.theme_button_color()
         window[enc_btn(i)].update(button_color=(colors))
-        text = 'off'
+    
         if not pd.isnull(shifts.iloc[i].start):
             text = shifts.iloc[i].start.strftime('%H:%M')
 
             if shifts.iloc[i].start.hour < startTimeWarning:
                 window[enc_btn(i)].update(button_color=('white', 'maroon'))
+        else:
+            text = shifts.iloc[i].id
 
 
 
@@ -206,7 +213,7 @@ def change_month(cal, selector):
                 if pd.notnull(SWAP.start):
                     text = SWAP.start.strftime('%H:%M')
                 elif SWAP.id in ['OFF', 'EDO']:
-                    text = 'off'
+                    text = SWAP.id
                 else:
                     raise
                 window[enc_btn(i)].update(button_color=('white', 'navy'))
@@ -226,8 +233,38 @@ def change_month(cal, selector):
             window[enc_btn(i)].update(visible=False)   # button_color=('white','white'))
         else:
             window[enc_btn(i)].update(visible=True)
+    
+    #update week label
+    cal_month = list(cal.itermonthdays3(cal.date.year, cal.date.month))
+    index = 0
+    for i in range(0,42,7):
+        print(len(cal_month))
+        if i >= len(cal_month):
+            window['-wk{}-'.format(int(i/7))].update(' ')
+            continue
+        print(i)
+        if (DATE(*cal_month[i]) - roster.epoch.date()).days//14%2==0:
+            window['-wk{}-'.format(int(i/7))].update('1')
+            print(i/7)
+        else:
+            window['-wk{}-'.format(int(i/7))].update('2')
+            print(i/7)
+            
+        
+    '''
+    start_date = DATE(cal.date.year, cal.date.month, 1)
+    end_date = DATE(cal.date.year, cal.date.month, calendar.monthrange(
+        cal.date.year, cal.date.month)[1])
+    delta = timedelta(days=7)
 
-
+    while start_date <= end_date:
+        print(start_date)
+        if (start_date - roster.epoch.date()).days//14 % 2 == 0:
+            print('week1')
+        else:
+            print('week2')
+        start_date += delta
+    '''
 def apply_months_swaps(month):
     #must have add_dates() applied first
     SWAPS = swaps.swaps[swaps.swaps['dates'].isin(month.date)]
@@ -319,7 +356,10 @@ def find_name(name):
                 possible.append(i)
         new_try = sg.popup_get_text("Name Not Found. Use part of the name and it may show below:\n{}".format(
             str(possible)))
-        return find_name(new_try.lower())
+        if new_try:
+            find_name(new_try.lower())
+        else:
+            return None
 
 
 if __name__ == "__main__":
@@ -338,23 +378,24 @@ if __name__ == "__main__":
     sg.theme('LightGrey')
 
     #col1 = [sg.Listbox(values=['ITCH', 'NI', 'SUN'], size=(20,20), key='-SWAPLIST-')]
-
+    wk0,wk1,wk2,wk3,wk4,wk5 = weekText()
     layout = [
         [sg.Button('Previous', key="-PREV-"), Txt_dt(key='-MONTH-', justification='r'), Txt_dt(key='-YEAR-', justification='l'), sg.Button('Next', key='-NEXT-')],
-        [Txt_day('Sun'), Txt_day('Mon'), Txt_day('Tue'), Txt_day('Wed'), Txt_day('Thu'), Txt_day('Fri'),
+        [sg.Text(' '),Txt_day('Sun'), Txt_day('Mon'), Txt_day('Tue'), Txt_day('Wed'), Txt_day('Thu'), Txt_day('Fri'),
          Txt_day(' Sat')],
-        [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
-        [sg.Button('Upload Month', key='-uploadMonth-'),sg.Button('Find Line', key='-findLine-')],
+        [wk0,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [wk1,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [wk2,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [wk3,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [wk4,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [wk5,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
+        [sg.Button(' Upload Month', key='-uploadMonth-'),sg.Button('Find Line', key='-findLine-')],
         [sg.Text('', size=[1,1])],
         [Txt('Swap with: '), In('name',key='-INSWAP-'), Txt('into line: '), In('0', key='-INLINE-')],
         [Btn_swap()],
         [sg.Listbox([],key='-SWAPLIST-',font=('Courier',10))],
         [Txt('Delete Swap:'), In('', key='-DELSWAP-'), sg.Button('delete', key='-DELSWAPBTN-')],
+        [sg.Button('Get Cowork Roster', key='-GETCOWORKER-')],
         [sg.Button('Exit')]
     ]
 
@@ -414,18 +455,50 @@ if __name__ == "__main__":
 
 
     while True:  # Event Loop
+
         event, values = window.read()
         print(event, values)
         if event in (None, 'Exit'):
             break
         window.refresh()
+        
+        if event == '-GETCOWORKER-':
+            coworker = sg.popup_get_text("Who's roster are you looking for?")
+            coworker = find_name(coworker)
+            if coworker:
+                #find line on original roster
+                coLine = names.index(coworker.lower()) + 1
+                print(coLine)
+                coRost = get_shifts(cal, roster, coLine)
+                coRost = add_dates(cal, coRost)
+                coRost['date'] = coRost['date'].dt.strftime('%Y-%m-%d')
+                coRost['start'] = coRost['start'].apply(lambda x: x.strftime('%H:%M:%S')if not pd.isnull(x) else '')
+                coRost['finish'] = coRost['finish'].apply(lambda x: x.strftime('%H:%M:%S')if not pd.isnull(x) else '')
+                coRost = coRost.filter(['date', 'start', 'finish', 'job', 'id'])#.set_index('date')
+                print(coRost)
+                
+                df_layout = [
+                [sg.Table(values=coRost.values.tolist(),
+                                  headings=list(coRost.columns),
+                                  pad=(5,5),
+                                  display_row_numbers=False,
+                                  auto_size_columns=True,
+                                  num_rows=min(31, len(coRost.values.tolist()))
+                                  )]
+                ]
+                window2 = sg.Window(coworker,df_layout)
+                event, values = window2.read()
+                event = 'None'
+                window2.close()
 
-
+                
+            
         if event == '-NEXT-':
             cal.next_month()
             change_month(cal, selector)
             get_shifts(cal,roster,line)
-
+            
+            
 
         if event == '-PREV-':
             cal.prev_month()
@@ -451,39 +524,48 @@ if __name__ == "__main__":
         if event[:4] == "--XD":
             selector.date(cal, event)
 
-
+        
         if event == "-SWAP-":
+
             swap_to_line = values['-INLINE-']
-            swap_with = values['-INSWAP-']
-            overwrite = True
-            swap_dates = [selector.get_date(cal, x[0]) for x in selector.dates]
-            swap_dates.sort()
-            check_previous =  set(swap_dates).intersection(swaps.swaps.dates)
-            if check_previous:
-                s = swaps.swaps
-                old_swaps = s[s.dates.isin(check_previous)]
-                print(old_swaps)
-                overwrite = sg.popup_yes_no('Overwrite old swaps with {}'.format([i for i in old_swaps.swap_with]))
-                if overwrite == 'Yes':
-                    swaps.swaps = swaps.swaps[~swaps.swaps.dates.isin(check_previous)]
-                else:
-                    overwrite = False
-
-            for dayte in swap_dates:
-                if not overwrite:
-                    break
-                if (dayte-roster.epoch).days//28 == (swap_dates[0]-roster.epoch).days//28:
-                    swaps.add(swap_with, swap_to_line, dayte)
-                else:
-                    swaps.add(swap_with, str(int(swap_to_line)+1), dayte)
-                    print(swaps.swaps)
-            swaps.swapID+=1
-
-            swapcal = calend(datetime(swap_dates[0].year, swap_dates[0].month, 1))
-            selector.dates = []
-
-            window['-SWAPLIST-'].update(swaps.formatted_swaps())
-            change_month(cal, selector)
+            try:
+                int(swap_to_line)
+            except:
+                sg.popup('swap line must be a number')
+                swap_to_line = 0
+            if int(swap_to_line) >= 1 and int(swap_to_line) <= totalRosterLines:
+                swap_with = values['-INSWAP-']
+                overwrite = True
+                swap_dates = [selector.get_date(cal, x[0]) for x in selector.dates]
+                swap_dates.sort()
+                check_previous =  set(swap_dates).intersection(swaps.swaps.dates)
+                if check_previous:
+                    s = swaps.swaps
+                    old_swaps = s[s.dates.isin(check_previous)]
+                    print(old_swaps)
+                    overwrite = sg.popup_yes_no('Overwrite old swaps with {}'.format([i for i in old_swaps.swap_with]))
+                    if overwrite == 'Yes':
+                        swaps.swaps = swaps.swaps[~swaps.swaps.dates.isin(check_previous)]
+                    else:
+                        overwrite = False
+    
+                for dayte in swap_dates:
+                    if not overwrite:
+                        break
+                    if (dayte-roster.epoch).days//28 == (swap_dates[0]-roster.epoch).days//28:
+                        swaps.add(swap_with, swap_to_line, dayte)
+                    else:
+                        swaps.add(swap_with, str(int(swap_to_line)+1), dayte)
+                        print(swaps.swaps)
+                swaps.swapID+=1
+    
+                swapcal = calend(datetime(swap_dates[0].year, swap_dates[0].month, 1))
+                selector.dates = []
+    
+                window['-SWAPLIST-'].update(swaps.formatted_swaps())
+                change_month(cal, selector)
+            else:
+                sg.popup('Roster Lines only valid from 1 to {}'.format(totalRosterLines))
 
 
             '''

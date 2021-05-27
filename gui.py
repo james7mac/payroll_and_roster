@@ -8,6 +8,9 @@ import pandas as pd
 from googlecal import update_calander, check_work_event, delete_event, get_creds
 from sqlalchemy import create_engine
 
+
+#show roster line
+
 monkeypatch = False
 startTimeWarning = 11
 if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
@@ -185,6 +188,16 @@ def change_month(cal, selector):
     shifts = get_shifts(cal, roster, line)
 
 
+    for i,k in enumerate(cal.itermonthdays(cal.date.year, cal.date.month)):
+        firstDay = i
+        if k != 0:
+            break
+
+    rLine = str(shifts.iloc[firstDay].name[0])
+
+
+
+    window['-rosterLine-'].update(rLine)
 
 
     for i, k in enumerate(cal.itermonthdates(cal.date.year, cal.date.month)):
@@ -207,7 +220,6 @@ def change_month(cal, selector):
 
         if not s.empty:
             if not s[s.dates==pd.Timestamp(k)].empty:
-                print(pd.Timestamp(k))
                 row = s[s.dates==pd.Timestamp(k)]
                 SWAP = swap(row)
                 if pd.notnull(SWAP.start):
@@ -229,7 +241,7 @@ def change_month(cal, selector):
 
 
     for i in range(35,42):
-        if len([i for i in cal.itermonthdays3(cal.date.year, cal.date.month)]) < 36:
+        if len([j for j in cal.itermonthdays3(cal.date.year, cal.date.month)]) < 36:
             window[enc_btn(i)].update(visible=False)   # button_color=('white','white'))
         else:
             window[enc_btn(i)].update(visible=True)
@@ -238,33 +250,14 @@ def change_month(cal, selector):
     cal_month = list(cal.itermonthdays3(cal.date.year, cal.date.month))
     index = 0
     for i in range(0,42,7):
-        print(len(cal_month))
         if i >= len(cal_month):
             window['-wk{}-'.format(int(i/7))].update(' ')
             continue
-        print(i)
         if (DATE(*cal_month[i]) - roster.epoch.date()).days//14%2==0:
             window['-wk{}-'.format(int(i/7))].update('1')
-            print(i/7)
         else:
             window['-wk{}-'.format(int(i/7))].update('2')
-            print(i/7)
-            
-        
-    '''
-    start_date = DATE(cal.date.year, cal.date.month, 1)
-    end_date = DATE(cal.date.year, cal.date.month, calendar.monthrange(
-        cal.date.year, cal.date.month)[1])
-    delta = timedelta(days=7)
 
-    while start_date <= end_date:
-        print(start_date)
-        if (start_date - roster.epoch.date()).days//14 % 2 == 0:
-            print('week1')
-        else:
-            print('week2')
-        start_date += delta
-    '''
 def apply_months_swaps(month):
     #must have add_dates() applied first
     SWAPS = swaps.swaps[swaps.swaps['dates'].isin(month.date)]
@@ -383,6 +376,7 @@ if __name__ == "__main__":
         [sg.Button('Previous', key="-PREV-"), Txt_dt(key='-MONTH-', justification='r'), Txt_dt(key='-YEAR-', justification='l'), sg.Button('Next', key='-NEXT-')],
         [sg.Text(' '),Txt_day('Sun'), Txt_day('Mon'), Txt_day('Tue'), Txt_day('Wed'), Txt_day('Thu'), Txt_day('Fri'),
          Txt_day(' Sat')],
+        [sg.Text('', key='-rosterLine-')],
         [wk0,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [wk1,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],
         [wk2,Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day(), Btn_day()],

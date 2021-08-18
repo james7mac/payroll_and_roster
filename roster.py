@@ -4,7 +4,8 @@
 # final page
 # The roster must also be cleaned of all blue "available" this was done using 'Libre Draw'
 pdfFullPages = 9
-pdfLastCoords = [148.6, 107.0 ,1166.4, 251.5]
+# TODO: the following coords are of unit 'Toporgraphic-points' and cann be found eaility in GIMP
+pdfLastCoords = [148.6, 107.0 ,1166.4, 299.3]
 nameCoords = []
 epoch = '17/01/21' #date in 30/6/99 format
 import time, os, tabula,logging, holidays
@@ -35,7 +36,7 @@ class Roster:
         self.fix_cell_helper = 0
         self.pdfFullPages = pdfFullPages
         self.epoch = epoch
-        self. pdfLastCoords = pdfLastCoords
+        self.pdfLastCoords = pdfLastCoords
         self.service = None
         if os.path.exists(working_dir+"//rosterDataFrame.csv"):
             self.df = pd.read_csv(working_dir+"//rosterDataFrame.csv", parse_dates=['start','finish'])
@@ -57,7 +58,7 @@ class Roster:
             #if i == pdfFullPages+1:
             #    x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=pdfLastCoords)
             #else:
-            x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=[100, 149, 589, 1167.9])
+            x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=[106, 149, 589, 1167.9])
             if type(x) == list:
                 x = x[0]
             x.dropna(axis=0, thresh=30, inplace=True)
@@ -66,10 +67,14 @@ class Roster:
             df1 = df1.append(x)
         df1.index = [str(i + 1) for i in range(len(df1))]
         df1.drop(['h1', 'h2'], axis=1, inplace=True)
+        print(df1)
         df1 = df1.applymap(self.fix_cell)
         df = pd.DataFrame()
-        for i in df1.iterrows():
+        for index, i in enumerate(df1.iterrows()):
             for ii, dic in enumerate(i[1]):
+                print('dic is')
+                print(dic)
+                print('row is {}, col is {}'.format(index, ii))
                 dic['rosDay'] = ii + 1
                 dic['rosLine'] = int(i[0])
                 temp_df = pd.DataFrame(dic, index=[0])
@@ -78,6 +83,40 @@ class Roster:
 
         return df
 
+    def fix_times(self, timeStr):
+        if timeStr == '2400':
+            timeStr = '0000'
+        return datetime.strptime(timeStr, "%H%M").time()
+
+    def fix_cell(self, x):
+        self.fix_cell_helper += 1
+        try:
+            if x.startswith('OFF'):
+                items = {'id': 'OFF', 'hours': None, 'start': None, 'finish': None, 'rest': False}
+            elif x.startswith('SPE'):
+                items = x.split('\r')
+                fixTimes = items[2].split('-')
+                del items[2]
+                fixTimes = [self.fix_times(i) for i in fixTimes]
+                items = {'id': items[0], 'hours': items[1], 'start': fixTimes[0], 'finish': fixTimes[1], 'rest': False}
+                if x.startswith('SPEX'):
+                    items['rest'] = True
+            elif x.startswith('EDO'):
+                items = {'id': 'EDO', 'hours': None, 'start': None, 'finish': None, 'rest': False}
+            elif x.lower().startswith('av'):
+                start, finish = x.split('\r')[-1].split('-')
+                job = {'id': 'AV', 'hours': '8:00', 'start': self.fix_times(start), 'finish': self.fix_times(finish),
+                       'rest': False}
+                return job
+            else:
+                print([x])
+                return x
+            return items
+        except(IndexError):
+            print('INDEX ERROR PASSING FOLLOWING:  ' + x)
+            print('col ' + str(self.fix_cell_helper // len(self.df)))
+            print('row ' + str(self.fix_cell_helper % len(self.df)))
+            return x
 
     def create_calander_event(self, job, service):
         update_calander(self.format_job(job), service)

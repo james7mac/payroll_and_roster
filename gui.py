@@ -407,6 +407,7 @@ if __name__ == "__main__":
             settings = json.load(file)
         line = settings['initialLine']
 
+
     else:
         settings={}
         settings['name'] = sg.popup_get_text('Please type your name then press ok')

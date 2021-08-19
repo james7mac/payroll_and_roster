@@ -7,7 +7,7 @@ pdfFullPages = 9
 # TODO: the following coords are of unit 'Toporgraphic-points' and cann be found eaility in GIMP
 pdfLastCoords = [148.6, 107.0 ,1166.4, 299.3]
 nameCoords = []
-epoch = '17/01/21' #date in 30/6/99 format
+epoch = '04/07/21' #date in 30/06/99 format
 import time, os, tabula,logging, holidays
 import pandas as pd
 from datetime import datetime, timedelta

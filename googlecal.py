@@ -43,8 +43,9 @@ def update_calander(data, service):
 
 def check_work_event(start_date, service):
     # Returns the event ID if it exists else False
+    # returns a work event if it starts after 330am
     local = pytz.timezone('Australia/Melbourne')
-    local_dt_start = local.localize(start_date, is_dst=None)
+    local_dt_start = local.localize(start_date, is_dst=None) + datetime.timedelta(hours=3,minutes=30)
     local_dt_end = local.localize(start_date + datetime.timedelta(hours=23, minutes=59, seconds=59
                                                                   ), is_dst=None)
     utc_dt_start = local_dt_start.astimezone(pytz.utc).isoformat()

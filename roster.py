@@ -4,8 +4,8 @@
 # final page
 # The roster must also be cleaned of all blue "available" this was done using 'Libre Draw'
 pdfFullPages = 9
-# TODO: the following coords are of unit 'Toporgraphic-points' and cann be found eaility in GIMP
-pdfLastCoords = [148.6, 107.0 ,1166.4, 299.3]
+# TODO: the following coords are of unit 'Toporgraphic-points' and can be found easily in GIMP
+pdfLastCoords = [101,148.6 ,299,1166.4]
 nameCoords = []
 epoch = '04/07/21' #date in 30/06/99 format
 import time, os, tabula,logging, holidays
@@ -58,7 +58,7 @@ class Roster:
             #if i == pdfFullPages+1:
             #    x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=pdfLastCoords)
             #else:
-            x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=[106, 149, 589, 1167.9])
+            x = tabula.read_pdf(roster_pdf, pages=int(i), lattice=1, area=[101, 149, 591, 1167.9])
             if type(x) == list:
                 x = x[0]
             x.dropna(axis=0, thresh=30, inplace=True)

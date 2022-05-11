@@ -3,12 +3,12 @@
 #TODO: when updating roster you must input the number of full pages below as well as the coords for
 # final page
 # The roster must also be cleaned of all blue "available" this was done using 'Libre Draw'
-pdfFullPages = 9
+
 # TODO: the following coords are of unit 'Toporgraphic-points' and can be found easily in GIMP
 pdfLastCoords = [101,148.6 ,299,1166.4]
 nameCoords = []
-epoch = '04/07/21' #date in 30/06/99 format
-import time, os, tabula,logging, holidays
+epoch = '01/01/22' #date in 30/06/99 format
+import time, os, tabula,logging, holidays, openpyxl
 import pandas as pd
 from datetime import datetime, timedelta
 from datetime import time as TIME
@@ -25,30 +25,69 @@ if os.environ['COMPUTERNAME'] == 'JMLAPTOP':
     working_dir =   r'C:\Users\james\PycharmProjects\payroll_and_roster'
 
 elif os.environ['COMPUTERNAME'] == 'JAMESPC':
-    working_dir = r'D:\Python\payroll_and_roster'
+    sheet_path = r'D:\Python\payroll_and_roster\seymourRoster.xlsm'
 
 else:
     Exception()
 
+roster_length = 11
+
+
 class Roster:
-    def __init__(self, roster_location=working_dir, pdfFullPages=pdfFullPages, pdfLastCoords=pdfLastCoords, epoch=epoch):
-        self.roster_location = roster_location
-        self.fix_cell_helper = 0
-        self.pdfFullPages = pdfFullPages
-        self.epoch = epoch
-        self.pdfLastCoords = pdfLastCoords
-        self.service = None
-        if os.path.exists(working_dir+"//rosterDataFrame.csv"):
-            self.df = pd.read_csv(working_dir+"//rosterDataFrame.csv", parse_dates=['start','finish'])
-            self.df['start'] = pd.to_datetime(self.df['start']).dt.time
-            self.df['finish'] = pd.to_datetime((self.df['finish'])).dt.time
+    def __init__(self, sheet=sheet_path, epoch_=epoch):
+        self.sheet = sheet
+        self.epoch = epoch_
+        self.df = self.create_dfs()
+
+    def read_cell(self, raw_roster, coord):
+        data = raw_roster.iloc[coord[0]:coord[0] + 5, coord[1]:coord[1] + 2]
+        job = {}
+        job['trains'] = ''
+        if type(data.iloc[2, 0]) == str:
+            job['trains'] = data.iloc[2, 0]
+        if type(data.iloc[1, 1]) == str:
+            job['trains'] = job['trains'] + ' ' + data.iloc[1, 1]
+
+        if job['trains'] in ['Rostered Off', 'EDO', 'BOWP']:
+            job['start'] = None
+            job['finish'] = None
+            job['job'] = None
         else:
-            self.df = self.roster_build(self.roster_location+'\\MasterRoster.pdf', pdfFullPages, pdfLastCoords)
-        self.df = self.df.set_index(['rosLine','rosDay'])
+            job['start'], job['finish'] = data.iloc[0, 0], data.iloc[0, 1]
+            job['job'] = data.iloc[1, 0]
+        return job
+
+    def cell_coord(self, line, day):
+        return [(line - 1) * 5, (day - 1) * 2]
+
+    def create_df(self, week):
+        name = "PROPOSED ROSTER WEEK " + str(week)
+        raw_roster = pd.read_excel(self.sheet, sheet_name=name, header=None)
+        roster_df = pd.DataFrame()
+        for line in range(1, roster_length + 1):
+            for day in range(1, 8):
+                job = self.read_cell(raw_roster, self.cell_coord(line, day))
+                job['day'] = day
+                job['line'] = line
+                job['week'] = week
+                df = pd.DataFrame([job])
+                roster_df = pd.concat([roster_df, df])
+        return roster_df
+
+    def create_dfs(self):
+        dfs = []
+        for i in range(1, 5):
+            dfs.append(self.create_df(i))
+        df = pd.concat(dfs)
+        return df
 
 
 
 
+
+
+
+'''
     def roster_build(self, pdfPath, pdfFullPages, pdfLastCoords):
         df1 = pd.DataFrame()
         for i in range(1, pdfFullPages+1):
@@ -167,11 +206,12 @@ class Roster:
 
 
 
-
+'''
 def main():
-    r = Roster(working_dir+'\\MasterRoster.pdf', pdfFullPages, pdfLastCoords, epoch)
-    view = r.df.pivot(index='rosLine', columns='rosDay', values=['start','finish']).swaplevel(axis=1).sort_index(axis=1, ascending=[1,0])
-    print(view)
+    r = Roster(sheet_path,epoch)
+    r
+    #view = r.df.pivot(index='rosLine', columns='rosDay', values=['start','finish']).swaplevel(axis=1).sort_index(axis=1, ascending=[1,0])
+    print(r)
 
 
 

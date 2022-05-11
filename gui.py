@@ -274,14 +274,23 @@ def apply_months_swaps(month):
 
 def get_shifts(cal, roster, line):
     print(cal.date)
+    print('line:'+str(line))
     daysSinceEpoch = (cal.date - roster.epoch).days
+    print(daysSinceEpoch)
     running_line = (line-1 + (daysSinceEpoch//28)) % totalRosterLines + 1
     print('THIS IS LINE {}'.format(line))
+    print('running_line:'+str(running_line))
+    print('totalRosterLines:' + str(totalRosterLines))
     day = daysSinceEpoch%28
     print('total roster line.... {}'.format(running_line))
+    print('day is'+str(day))
     if running_line  < totalRosterLines-1:
-        first = roster.df.index.get_loc((running_line, day+1))-1
+        r = roster.df.set_index(['line','week','day'])
+        print(r)
+        first = r.index.get_loc((1, 1, 1)) - 1
+        #first = roster.df.index.get_loc((running_line,1, day+1))-1
         print(first)
+        raise
         print(roster.df[first:first+42])
         print('{} since epoch'.format(daysSinceEpoch))
         print('{} is day num'.format(day))
@@ -361,7 +370,7 @@ if __name__ == "__main__":
     if monkeypatch:
         roster.Roster.update_calander = patch_calendar
     roster = roster.Roster()
-    totalRosterLines = len(roster.df.groupby(level=0))
+    totalRosterLines = len(roster.df.groupby('line'))
     with open('roster_order') as file:
         names = file.read().split('\n')
         names = [i.lower() for i in names]

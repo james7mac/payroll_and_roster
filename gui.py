@@ -290,7 +290,6 @@ def get_shifts(cal, roster, line):
         first = r.index.get_loc((1, 1, 1)) - 1
         #first = roster.df.index.get_loc((running_line,1, day+1))-1
         print(first)
-        raise
         print(roster.df[first:first+42])
         print('{} since epoch'.format(daysSinceEpoch))
         print('{} is day num'.format(day))
@@ -307,7 +306,7 @@ def get_shifts(cal, roster, line):
     #roster loops back around
     if cal.date.weekday() == 6:
         first+=7
-
+    raise
     return roster.df[first:first + 42]
 
 
